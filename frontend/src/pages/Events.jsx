@@ -210,23 +210,46 @@ export default function Events() {
                     ))}
                   </div>
 
-                  <div className="mt-5 flex flex-wrap gap-3">
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gray-100">
                     <Link
                       to={`/events/${event._id}`}
-                      className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
+                      className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 active:scale-95 transform duration-150"
                     >
                       View details
                     </Link>
-                    {event.eventLink ? (
-                      <a
-                        href={event.eventLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="rounded-xl border border-teal-600 px-4 py-2 text-sm font-medium text-teal-700 transition hover:bg-teal-50"
-                      >
-                        Open event
-                      </a>
-                    ) : null}
+                    {(() => {
+                      const isDeadlinePassed = new Date(event.registrationDeadline) < new Date();
+                      if (isDeadlinePassed) {
+                        return (
+                          <button
+                            disabled
+                            className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-400 cursor-not-allowed"
+                          >
+                            Registration Closed
+                          </button>
+                        );
+                      }
+                      if (!event.eventLink) {
+                        return (
+                          <button
+                            disabled
+                            className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-400 cursor-not-allowed"
+                          >
+                            Link Not Available
+                          </button>
+                        );
+                      }
+                      return (
+                        <a
+                          href={event.eventLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 hover:shadow-md active:scale-95 transform duration-150"
+                        >
+                          Register Now
+                        </a>
+                      );
+                    })()}
                   </div>
                 </div>
               </article>
