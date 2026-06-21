@@ -1,9 +1,13 @@
 const express = require('express');
-const { getEvents, getEventById } = require('../controllers/eventsController');
+const authMiddleware = require('../middlewares/authMiddleware');
+const roleMiddleware = require('../middlewares/roleMiddleware');
+const { getEvents, getEventById, createEvent, updateEvent } = require('../controllers/eventsController');
 
 const router = express.Router();
 
-router.get('/', getEvents);
-router.get('/:id', getEventById);
+router.get('/', authMiddleware, getEvents);
+router.get('/:id', authMiddleware, getEventById);
+router.post('/', authMiddleware, roleMiddleware('admin'), createEvent);
+router.patch('/:id', authMiddleware, roleMiddleware('admin'), updateEvent);
 
 module.exports = router;

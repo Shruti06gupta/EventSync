@@ -68,6 +68,18 @@ const eventSchema = new mongoose.Schema(
       type: String,
       default: '',
       trim: true,
+      validate: {
+        validator: function (value) {
+          if (!value) return true;
+          try {
+            const url = new URL(value);
+            return ['http:', 'https:'].includes(url.protocol);
+          } catch (e) {
+            return false;
+          }
+        },
+        message: 'Event link must be a valid URL starting with http:// or https://',
+      },
     },
     isVerified: {
       type: Boolean,

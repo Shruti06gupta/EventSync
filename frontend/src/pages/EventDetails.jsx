@@ -83,18 +83,41 @@ export default function EventDetails() {
           ))}
         </div>
 
-        <div className="mt-8 flex flex-wrap gap-3">
-          {event.eventLink ? (
-            <a
-              href={event.eventLink}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-xl bg-teal-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-teal-700"
-            >
-              Open event page
-            </a>
-          ) : null}
-          <Link to="/events" className="rounded-xl border border-gray-300 px-5 py-3 text-sm font-medium text-gray-700">
+        <div className="mt-8 flex flex-wrap items-center gap-3 pt-6 border-t border-gray-100">
+          {(() => {
+            const isDeadlinePassed = new Date(event.registrationDeadline) < new Date();
+            if (isDeadlinePassed) {
+              return (
+                <button
+                  disabled
+                  className="rounded-xl bg-gray-50 border border-gray-200 px-6 py-3 text-sm font-semibold text-gray-400 cursor-not-allowed"
+                >
+                  Registration Closed
+                </button>
+              );
+            }
+            if (!event.eventLink) {
+              return (
+                <button
+                  disabled
+                  className="rounded-xl bg-gray-50 border border-gray-200 px-6 py-3 text-sm font-semibold text-gray-400 cursor-not-allowed"
+                >
+                  Link Not Available
+                </button>
+              );
+            }
+            return (
+              <a
+                href={event.eventLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-xl bg-teal-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-teal-700 hover:shadow-md active:scale-95 transform duration-150 text-center"
+              >
+                Register Now
+              </a>
+            );
+          })()}
+          <Link to="/events" className="rounded-xl border border-gray-300 px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition duration-150">
             Explore more events
           </Link>
         </div>
