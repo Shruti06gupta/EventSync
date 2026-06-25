@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api'
+import BookmarkButton from '../components/BookmarkButton'
+import useBookmarks from '../hooks/useBookmarks'
 
 const formatDate = (value) =>
   new Intl.DateTimeFormat('en-IN', {
@@ -18,6 +20,7 @@ export default function Events() {
   const [category, setCategory] = useState('')
   const [mode, setMode] = useState('')
   const [college, setCollege] = useState('')
+  const { isBookmarked, toggleBookmark } = useBookmarks()
 
   useEffect(() => {
     const loadEvents = async () => {
@@ -180,7 +183,7 @@ export default function Events() {
                 <div className="p-5">
                   <div className="flex items-start justify-between gap-3">
                     <h2 className="text-lg font-semibold text-gray-900">{event.title}</h2>
-                    <span className="rounded-full bg-teal-100 px-3 py-1 text-xs font-medium text-teal-700">
+                    <span className="shrink-0 rounded-full bg-teal-100 px-3 py-1 text-xs font-medium text-teal-700">
                       {event.mode}
                     </span>
                   </div>
@@ -210,13 +213,19 @@ export default function Events() {
                     ))}
                   </div>
 
-                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gray-100">
+                  <div className="mt-5 flex flex-wrap items-center gap-3 pt-4 border-t border-gray-100">
                     <Link
                       to={`/events/${event._id}`}
                       className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 active:scale-95 transform duration-150"
                     >
                       View details
                     </Link>
+                    <BookmarkButton
+                      eventId={event._id}
+                      isBookmarked={isBookmarked(event._id)}
+                      onToggle={toggleBookmark}
+                      size="sm"
+                    />
                     {(() => {
                       const isDeadlinePassed = new Date(event.registrationDeadline) < new Date();
                       if (isDeadlinePassed) {
