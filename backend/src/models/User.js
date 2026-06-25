@@ -34,6 +34,10 @@ const userSchema = new mongoose.Schema(
       enum: ['student', 'admin'],
       default: 'student',
     },
+    bookmarks: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Event' }],
+      default: [],
+    },
     resetOTP: {
       type: String,
       default: null,

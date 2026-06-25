@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../api'
+import BookmarkButton from '../components/BookmarkButton'
+import useBookmarks from '../hooks/useBookmarks'
 
 const formatDate = (value) =>
   new Intl.DateTimeFormat('en-IN', {
@@ -13,6 +15,7 @@ export default function EventDetails() {
   const [event, setEvent] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const { isBookmarked, toggleBookmark } = useBookmarks()
 
   useEffect(() => {
     const loadEvent = async () => {
@@ -56,9 +59,16 @@ export default function EventDetails() {
             <p className="text-sm uppercase tracking-[0.25em] text-teal-600">Event details</p>
             <h1 className="mt-2 text-3xl font-bold text-gray-900">{event.title}</h1>
           </div>
-          <Link to="/events" className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700">
-            Back to events
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <BookmarkButton
+              eventId={event._id}
+              isBookmarked={isBookmarked(event._id)}
+              onToggle={toggleBookmark}
+            />
+            <Link to="/events" className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700">
+              Back to events
+            </Link>
+          </div>
         </div>
 
         <p className="mt-5 text-gray-600">{event.description}</p>
