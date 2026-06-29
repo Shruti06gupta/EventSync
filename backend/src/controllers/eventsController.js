@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const Event = require('../models/Event');
-const { createEventNotifications } = require('../services/notificationService');
+const { safeCreateEventNotifications } = require('../services/notificationService');
 
 const getEvents = async (req, res) => {
   try {
@@ -169,7 +169,7 @@ const createEvent = async (req, res) => {
 
     await newEvent.save();
 
-    await createEventNotifications({
+    await safeCreateEventNotifications({
       actorUserId: req.user._id,
       eventId: newEvent._id,
       eventTitle: newEvent.title,

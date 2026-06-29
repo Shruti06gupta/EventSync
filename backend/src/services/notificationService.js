@@ -16,6 +16,24 @@ const normalizeNotificationLimit = (value) => {
 
 const buildNewEventNotificationMessage = (eventTitle) => `New event available: ${eventTitle}`;
 
+const buildBookmarkNotificationMessage = (eventTitle) => `You bookmarked: ${eventTitle}`;
+
+const safeCreateNotifications = async (operation, context = {}) => {
+  try {
+    return await operation();
+  } catch (error) {
+    console.error('Notification creation failed:', {
+      ...context,
+      error: error.message,
+    });
+
+    return {
+      insertedCount: 0,
+      error: error.message,
+    };
+  }
+};
+
 const createEventNotifications = async ({ actorUserId, eventId, eventTitle }) => {
   const recipients = await User.find({ _id: { $ne: actorUserId } }).select('_id').lean();
 
@@ -35,6 +53,39 @@ const createEventNotifications = async ({ actorUserId, eventId, eventTitle }) =>
   return { insertedCount: inserted.length };
 };
 
+const safeCreateEventNotifications = (payload) =>
+  safeCreateNotifications(
+    () => createEventNotifications(payload),
+    {
+      type: 'event_created',
+      actorUserId: payload.actorUserId,
+      eventId: payload.eventId,
+    }
+  );
+
+const createBookmarkNotification = async ({ userId, eventId, eventTitle }) => {
+  const notification = {
+    user: userId,
+    type: 'bookmark_added',
+    event: eventId,
+    message: buildBookmarkNotificationMessage(eventTitle),
+  };
+
+  const inserted = await Notification.create(notification);
+
+  return { insertedCount: 1 };
+};
+
+const safeCreateBookmarkNotification = (payload) =>
+  safeCreateNotifications(
+    () => createBookmarkNotification(payload),
+    {
+      type: 'bookmark_added',
+      userId: payload.userId,
+      eventId: payload.eventId,
+    }
+  );
+
 const getUnreadNotificationCount = (userId) =>
   Notification.countDocuments({
     user: userId,
@@ -46,6 +97,10 @@ module.exports = {
   MAX_NOTIFICATION_LIMIT,
   normalizeNotificationLimit,
   buildNewEventNotificationMessage,
+  buildBookmarkNotificationMessage,
   createEventNotifications,
+  safeCreateEventNotifications,
+  createBookmarkNotification,
+  safeCreateBookmarkNotification,
   getUnreadNotificationCount,
 };
