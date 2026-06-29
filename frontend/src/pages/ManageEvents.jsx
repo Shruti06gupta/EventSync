@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useNotifications } from '../context/NotificationsContext'
 import api from '../api'
 
 const formatDateForInput = (dateStr) => {
@@ -11,6 +12,7 @@ const formatDateForInput = (dateStr) => {
 
 export default function ManageEvents() {
   const { user } = useAuth()
+  const { refreshNotifications } = useNotifications()
   const [events, setEvents] = useState([])
   const [loadingEvents, setLoadingEvents] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -166,6 +168,7 @@ export default function ManageEvents() {
       } else {
         await api.post('/events', payload)
         setSuccessMessage('Event created successfully!')
+        refreshNotifications()
       }
 
       setFormData({

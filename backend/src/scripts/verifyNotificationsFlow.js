@@ -11,6 +11,27 @@ const TEMP_STUDENT_EMAIL = 'notifications-student@eventsync.local';
 const TEMP_PASSWORD = 'Passw0rd!';
 const TEMP_EVENT_TITLE = 'Notification Flow Smoke Test Event';
 
+const splitSetCookieHeader = (value) => {
+  if (!value) return [];
+
+  return value.split(/,(?=\s*[^;,]+=)/).map((cookie) => cookie.trim()).filter(Boolean);
+};
+
+const getSetCookieHeaders = (headers) => {
+  if (typeof headers.getSetCookie === 'function') {
+    return headers.getSetCookie();
+  }
+
+  if (typeof headers.raw === 'function') {
+    const rawHeaders = headers.raw();
+    if (Array.isArray(rawHeaders['set-cookie'])) {
+      return rawHeaders['set-cookie'];
+    }
+  }
+
+  return splitSetCookieHeader(headers.get('set-cookie'));
+};
+
 const createCookieJar = () => {
   const store = new Map();
 
@@ -23,9 +44,7 @@ const createCookieJar = () => {
       return headers;
     },
     capture(response) {
-      const setCookies = typeof response.headers.getSetCookie === 'function'
-        ? response.headers.getSetCookie()
-        : [];
+      const setCookies = getSetCookieHeaders(response.headers);
 
       for (const cookie of setCookies) {
         const [nameValue] = cookie.split(';');
@@ -161,6 +180,47 @@ const createEventThroughApi = async (jar) => {
   if (response.status !== 201) {
     throw new Error(`Event creation failed: ${body.message || response.status}`);
   }
+
+  return body.event;
+};
+
+const addBookmarkThroughApi = async (jar, eventId) => {
+  const { response, body } = await requestJson(jar, `/user/bookmarks/${eventId}`, {
+    method: 'POST',
+  });
+
+  if (response.status !== 201) {
+    throw new Error(`Bookmark creation failed: ${body.message || response.status}`);
+  }
+};
+
+const verifyErrorCases = async ({ studentJar, adminJar, studentNotificationId }) => {
+  const unauthenticatedJar = createCookieJar();
+  const { response: unauthResponse } = await requestJson(unauthenticatedJar, '/notifications');
+
+  if (unauthResponse.status !== 401) {
+    throw new Error(`Expected unauthenticated notifications request to return 401, received ${unauthResponse.status}`);
+  }
+
+  const { response: invalidIdResponse } = await requestJson(
+    studentJar,
+    '/notifications/not-a-valid-id/read',
+    { method: 'PATCH' }
+  );
+
+  if (invalidIdResponse.status !== 400) {
+    throw new Error(`Expected invalid notification id to return 400, received ${invalidIdResponse.status}`);
+  }
+
+  const { response: otherUserResponse } = await requestJson(
+    adminJar,
+    `/notifications/${studentNotificationId}/read`,
+    { method: 'PATCH' }
+  );
+
+  if (otherUserResponse.status !== 404) {
+    throw new Error(`Expected another user's notification to return 404, received ${otherUserResponse.status}`);
+  }
 };
 
 const main = async () => {
@@ -203,7 +263,7 @@ const main = async () => {
     }
 
     const adminJar = await login(TEMP_ADMIN_EMAIL, TEMP_PASSWORD);
-    await createEventThroughApi(adminJar);
+    const createdEvent = await createEventThroughApi(adminJar);
 
     const afterCreate = await verifyAuthenticatedNotifications(studentJar, 1);
     const createdNotification = afterCreate.notifications.find(
@@ -213,6 +273,16 @@ const main = async () => {
     if (!createdNotification) {
       throw new Error('Expected the newly created event notification to be present.');
     }
+
+    if (createdNotification.type !== 'event_created') {
+      throw new Error(`Expected event notification type "event_created", received "${createdNotification.type}"`);
+    }
+
+    await verifyErrorCases({
+      studentJar,
+      adminJar,
+      studentNotificationId: createdNotification._id,
+    });
 
     const { response: markReadResponse, body: markReadBody } = await requestJson(
       studentJar,
@@ -232,6 +302,31 @@ const main = async () => {
     if (!updatedNotification || !updatedNotification.read) {
       throw new Error('Expected the notification to stay marked as read.');
     }
+
+    await addBookmarkThroughApi(studentJar, createdEvent._id);
+
+    const afterBookmark = await verifyAuthenticatedNotifications(studentJar, 1);
+    const bookmarkNotification = afterBookmark.notifications.find(
+      (notification) =>
+        notification.type === 'bookmark_added' &&
+        notification.message === `You bookmarked: ${TEMP_EVENT_TITLE}`
+    );
+
+    if (!bookmarkNotification) {
+      throw new Error('Expected the bookmark notification to be present.');
+    }
+
+    const { response: markBookmarkReadResponse, body: markBookmarkReadBody } = await requestJson(
+      studentJar,
+      `/notifications/${bookmarkNotification._id}/read`,
+      { method: 'PATCH' }
+    );
+
+    if (markBookmarkReadResponse.status !== 200) {
+      throw new Error(`Bookmark mark-as-read failed: ${markBookmarkReadBody.message || markBookmarkReadResponse.status}`);
+    }
+
+    await verifyAuthenticatedNotifications(studentJar, 0);
 
     console.log('Notification flow verification passed.');
   } finally {
