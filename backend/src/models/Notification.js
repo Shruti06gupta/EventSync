@@ -15,8 +15,13 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      trim: true,
+      enum: ['general', 'new_event', 'deadline_reminder', 'system'],
       default: 'general',
+    },
+    reminderStage: {
+      type: String,
+      enum: ['48h', '24h', '3h', null],
+      default: null,
     },
     event: {
       type: mongoose.Schema.Types.ObjectId,

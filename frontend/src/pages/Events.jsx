@@ -20,6 +20,7 @@ export default function Events() {
   const [category, setCategory] = useState('')
   const [mode, setMode] = useState('')
   const [college, setCollege] = useState('')
+  const [source, setSource] = useState('')
   const { isBookmarked, toggleBookmark } = useBookmarks()
 
   useEffect(() => {
@@ -36,11 +37,12 @@ export default function Events() {
             category: category || undefined,
             mode: mode || undefined,
             college: college || undefined,
+              source: source || undefined,
           },
         })
 
         setEvents(res.data.events || [])
-        setPagination(res.data.pagination || { totalPages: 1, totalEvents: 0 })
+        setPagination(res.data.pagination || { totalPages: 1, totalEvents: 0, hasNextPage: false })
       } catch (err) {
         setError(err.response?.data?.message || 'Unable to load events right now.')
       } finally {
@@ -49,7 +51,7 @@ export default function Events() {
     }
 
     loadEvents()
-  }, [page, search, category, mode, college])
+  }, [page, search, category, mode, college, source])
 
   const categories = useMemo(() => {
     return [...new Set(events.map((event) => event.category).filter(Boolean))]
@@ -132,6 +134,20 @@ export default function Events() {
               className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-teal-500"
             />
           </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-gray-700">Source</span>
+            <select
+              value={source}
+              onChange={(event) => resetPageAndFilters(setSource)(event.target.value)}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-teal-500"
+            >
+              <option value="">All sources</option>
+              <option value="devfolio">Devfolio</option>
+              <option value="unstop">Unstop</option>
+              <option value="manual">Manual / Admin</option>
+            </select>
+          </label>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-3">
@@ -143,13 +159,14 @@ export default function Events() {
               setCategory('')
               setMode('')
               setCollege('')
+              setSource('')
             }}
             className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
           >
             Clear filters
           </button>
           <p className="flex items-center text-sm text-gray-500">
-            Showing {events.length} of {pagination.totalEvents} events
+            Showing page {page} of {pagination.totalPages} · {events.length} events on this page
           </p>
         </div>
       </div>
@@ -265,28 +282,28 @@ export default function Events() {
             ))}
           </div>
 
-          <div className="mt-8 flex items-center justify-between rounded-3xl bg-white px-4 py-4 shadow-sm">
-            <p className="text-sm text-gray-600">
-              Page {pagination.totalPages ? page : 0} of {pagination.totalPages}
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setPage((currentPage) => Math.max(currentPage - 1, 1))}
-                disabled={page === 1}
-                className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                onClick={() => setPage((currentPage) => currentPage + 1)}
-                disabled={!pagination.totalPages || page >= pagination.totalPages}
-                className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => setPage((currentPage) => Math.max(currentPage - 1, 1))}
+              disabled={page === 1}
+              className="rounded-xl border border-gray-300 bg-white px-5 py-2 text-sm font-semibold text-gray-700 transition hover:border-teal-300 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Previous
+            </button>
+
+            <span className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
+              {page} / {pagination.totalPages}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setPage((currentPage) => Math.min(currentPage + 1, pagination.totalPages))}
+              disabled={!pagination.hasNextPage}
+              className="rounded-xl border border-gray-300 bg-white px-5 py-2 text-sm font-semibold text-gray-700 transition hover:border-teal-300 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next
+            </button>
           </div>
         </>
       )}

@@ -4,6 +4,7 @@
   "private": true,
   "description": "EventSync — event discovery platform",
   "scripts": {
+    "dev": "node scripts/start-dev.js",
     "start": "node scripts/start-dev.js",
     "start:backend": "npm run start --prefix backend",
     "start:frontend": "npm run dev --prefix frontend",

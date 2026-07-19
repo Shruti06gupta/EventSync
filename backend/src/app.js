@@ -5,6 +5,7 @@ const authRoutes = require('./routes/authRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const userRoutes = require('./routes/userRoutes');
+const aggregationRoutes = require('./routes/aggregation.routes');
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use('/auth', authRoutes);
 app.use('/events', eventRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/user', userRoutes);
+app.use('/aggregation', aggregationRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ message: 'EventSync API is running' });

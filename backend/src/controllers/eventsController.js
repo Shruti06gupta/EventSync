@@ -12,20 +12,25 @@ const getEvents = async (req, res) => {
     const category = req.query.category?.trim();
     const mode = req.query.mode?.trim();
     const college = req.query.college?.trim();
+    const source = req.query.source?.trim().toLowerCase();
 
     const filter = {
       isVerified: true,
       startDate: { $gte: now },
     };
 
+    const andConditions = [];
+
     if (search) {
-      filter.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { organizer: { $regex: search, $options: 'i' } },
-        { college: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } },
-      ];
+      andConditions.push({
+        $or: [
+          { title: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+          { organizer: { $regex: search, $options: 'i' } },
+          { college: { $regex: search, $options: 'i' } },
+          { tags: { $in: [new RegExp(search, 'i')] } },
+        ],
+      });
     }
 
     if (category) {
@@ -38,6 +43,26 @@ const getEvents = async (req, res) => {
 
     if (college) {
       filter.college = { $regex: college, $options: 'i' };
+    }
+
+    if (['devfolio', 'unstop', 'manual'].includes(source)) {
+      if (source === 'manual') {
+        filter.source = 'manual';
+        filter.isAggregated = false;
+        filter.createdBy = { $exists: true, $ne: null };
+      } else {
+        andConditions.push({
+          $or: [
+            { source },
+            { tags: source },
+            { tags: { $in: [source] } },
+          ],
+        });
+      }
+    }
+
+    if (andConditions.length > 0) {
+      filter.$and = andConditions;
     }
 
     // Fetch all matching events, sort by user's college first in memory, and then paginate
@@ -76,6 +101,7 @@ const getEvents = async (req, res) => {
         category: category || '',
         mode: mode || '',
         college: college || '',
+        source: source || '',
       },
     });
   } catch (error) {
@@ -97,7 +123,6 @@ const getEventById = async (req, res) => {
     const event = await Event.findOne({
       _id: id,
       isVerified: true,
-      startDate: { $gte: new Date() },
     }).populate('createdBy', 'name email role college');
 
     if (!event) {
@@ -132,6 +157,7 @@ const createEvent = async (req, res) => {
       venue,
       image,
       eventLink,
+      isPublic,
     } = req.body;
 
     if (!title || !description || !organizer || !college || !category || !startDate || !endDate || !registrationDeadline || !mode) {
@@ -156,6 +182,7 @@ const createEvent = async (req, res) => {
       college,
       category,
       tags: Array.isArray(tags) ? tags : (tags ? tags.split(',').map(t => t.trim()) : []),
+      source: 'manual',
       startDate,
       endDate,
       registrationDeadline,
@@ -164,6 +191,7 @@ const createEvent = async (req, res) => {
       image: image || '',
       eventLink: eventLink || '',
       isVerified: true,
+      isPublic: isPublic === true || isPublic === 'true',
       createdBy: req.user._id,
     });
 
@@ -173,6 +201,9 @@ const createEvent = async (req, res) => {
       actorUserId: req.user._id,
       eventId: newEvent._id,
       eventTitle: newEvent.title,
+      eventCategory: newEvent.category,
+      eventCollege: newEvent.college,
+      isPublic: newEvent.isPublic,
     });
 
     return res.status(201).json({
@@ -239,6 +270,9 @@ const updateEvent = async (req, res) => {
     if (category !== undefined) event.category = category;
     if (tags !== undefined) {
       event.tags = Array.isArray(tags) ? tags : (tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []);
+    }
+    if (event.source === undefined) {
+      event.source = 'manual';
     }
     if (startDate !== undefined) event.startDate = startDate;
     if (endDate !== undefined) event.endDate = endDate;

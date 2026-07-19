@@ -1,9 +1,11 @@
+const path = require('path');
 const { execFileSync, spawn } = require('child_process');
 
 const isWindows = process.platform === 'win32';
 const managedPorts = [5000, 5173];
 const childProcesses = new Set();
 let shuttingDown = false;
+const appRoot = path.resolve(__dirname, '..');
 
 function parsePids(output) {
   return [...output.matchAll(/LISTENING\s+(\d+)/g)].map((match) => Number(match[1]));
@@ -53,6 +55,26 @@ function ensureManagedPortsAvailable() {
   }
 }
 
+async function waitForManagedPortsToClear() {
+  const maxAttempts = 20;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const busyPorts = managedPorts.filter((port) => getListeningPids(port).length > 0);
+
+    if (busyPorts.length === 0) {
+      return;
+    }
+
+    if (attempt === 0) {
+      console.log(`Waiting for ports to clear: ${busyPorts.join(', ')}`);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  console.warn(`Some managed ports are still busy after cleanup: ${managedPorts.filter((port) => getListeningPids(port).length > 0).join(', ')}`);
+}
+
 function prefixStream(stream, prefix, writer) {
   let buffer = '';
 
@@ -91,7 +113,7 @@ function stopChildren(exitCode = 0) {
 
 function startProcess(name, command, colorWriter) {
   const child = spawn(command, {
-    cwd: process.cwd(),
+    cwd: appRoot,
     env: process.env,
     shell: isWindows,
     stdio: ['inherit', 'pipe', 'pipe'],
@@ -120,10 +142,18 @@ function startProcess(name, command, colorWriter) {
   return child;
 }
 
-ensureManagedPortsAvailable();
+async function main() {
+  ensureManagedPortsAvailable();
+  await waitForManagedPortsToClear();
 
-startProcess('backend', 'npm run start --prefix backend', process.stderr.write.bind(process.stderr));
-startProcess('frontend', 'npm run dev --prefix frontend', process.stderr.write.bind(process.stderr));
+  startProcess('backend', 'npm run start --prefix backend', process.stderr.write.bind(process.stderr));
+  startProcess('frontend', 'npm run dev --prefix frontend', process.stderr.write.bind(process.stderr));
+}
+
+main().catch((error) => {
+  console.error(`Dev launcher failed: ${error.message}`);
+  process.exit(1);
+});
 
 process.on('SIGINT', () => stopChildren(0));
 process.on('SIGTERM', () => stopChildren(0));

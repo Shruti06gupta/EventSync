@@ -12,6 +12,9 @@ export function NotificationsProvider({ children }) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [liveToast, setLiveToast] = useState(null)
+
+  const clearToast = useCallback(() => setLiveToast(null), [])
 
   const loadNotifications = useCallback(
     async ({ silent = false } = {}) => {
@@ -24,27 +27,40 @@ export function NotificationsProvider({ children }) {
       }
 
       try {
-        if (!silent) {
-          setLoading(true)
-        }
+        if (!silent) setLoading(true)
+
         setError('')
         const data = await getNotifications()
-        setNotifications(data.notifications || [])
+        const fetchedNotifications = (data.notifications || []).sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        )
+
+        setNotifications((prev) => {
+          if (silent && fetchedNotifications.length > 0) {
+            const latestNew = fetchedNotifications[0]
+            const latestOld = prev.length > 0 ? prev[0] : null
+
+            if (
+              (!latestOld || new Date(latestNew.createdAt) > new Date(latestOld.createdAt)) &&
+              !latestNew.read
+            ) {
+              setLiveToast(latestNew)
+            }
+          }
+          return fetchedNotifications
+        })
+
         setUnreadCount(
-          typeof data.unreadCount === 'number'
-            ? data.unreadCount
-            : (data.notifications || []).reduce((count, notification) => {
-                return notification.read ? count : count + 1
-              }, 0)
+          fetchedNotifications.reduce((count, notification) => {
+            return notification.read ? count : count + 1
+          }, 0)
         )
       } catch (err) {
         if (!silent) {
           setError(err.response?.data?.message || 'Unable to load notifications.')
         }
       } finally {
-        if (!silent) {
-          setLoading(false)
-        }
+        if (!silent) setLoading(false)
       }
     },
     [user]
@@ -100,13 +116,19 @@ export function NotificationsProvider({ children }) {
 
     try {
       const data = await markAsRead(id)
+
       setNotifications((current) =>
-        current.map((notification) =>
-          notification._id === id ? data.notification : notification
-        )
+        current
+          .map((notification) =>
+            notification._id === id ? data.notification : notification
+          )
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       )
+
       if (typeof data.unreadCount === 'number') {
         setUnreadCount(data.unreadCount)
+      } else {
+        setUnreadCount((current) => Math.max(current, 0))
       }
     } catch (err) {
       if (previousNotification) {
@@ -129,10 +151,12 @@ export function NotificationsProvider({ children }) {
       unreadCount,
       loading,
       error,
+      liveToast,
+      clearToast,
       loadNotifications,
       markNotificationAsRead,
     }),
-    [notifications, unreadCount, loading, error, loadNotifications, markNotificationAsRead]
+    [notifications, unreadCount, loading, error, liveToast, clearToast, loadNotifications, markNotificationAsRead]
   )
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>
