@@ -39,6 +39,25 @@ export default function Bookmarks() {
     setEvents((current) => current.filter((event) => event._id !== eventId))
   }
 
+  const getDeadlineBadge = (deadlineDate) => {
+    if (!deadlineDate) return null;
+    const now = new Date();
+    const deadline = new Date(deadlineDate);
+    const timeToDeadline = deadline.getTime() - now.getTime();
+    
+    if (timeToDeadline < 0) return null;
+    if (timeToDeadline <= 3 * 60 * 60 * 1000) {
+      return <span className="bg-red-50 text-red-700 text-xs font-bold px-2 py-1 rounded-full border border-red-200 flex items-center gap-1 shadow-sm">🚨 Last 3 hours</span>;
+    }
+    if (timeToDeadline <= 24 * 60 * 60 * 1000) {
+      return <span className="bg-orange-50 text-orange-700 text-xs font-bold px-2 py-1 rounded-full border border-orange-200 flex items-center gap-1 shadow-sm">⚠ Closes tomorrow</span>;
+    }
+    if (timeToDeadline <= 48 * 60 * 60 * 1000) {
+      return <span className="bg-amber-50 text-amber-700 text-xs font-bold px-2 py-1 rounded-full border border-amber-200 flex items-center gap-1 shadow-sm">⏰ Closes in 48 hours</span>;
+    }
+    return null;
+  }
+
   return (
     <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8 rounded-3xl bg-gradient-to-r from-amber-500 to-orange-500 p-8 text-white shadow-xl">
@@ -71,7 +90,7 @@ export default function Bookmarks() {
           {events.map((event) => (
             <article
               key={event._id}
-              className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+              className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl relative"
             >
               {event.image ? (
                 <img src={event.image} alt={event.title} className="h-48 w-full object-cover" />
@@ -80,10 +99,15 @@ export default function Bookmarks() {
                   EventSync
                 </div>
               )}
+              
+              <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
+                {getDeadlineBadge(event.registrationDeadline)}
+              </div>
+
               <div className="p-5">
                 <div className="flex items-start justify-between gap-3">
                   <h2 className="text-lg font-semibold text-gray-900">{event.title}</h2>
-                  <span className="rounded-full bg-teal-100 px-3 py-1 text-xs font-medium text-teal-700">
+                  <span className="rounded-full bg-teal-100 px-3 py-1 text-xs font-medium text-teal-700 flex-shrink-0">
                     {event.mode}
                   </span>
                 </div>
@@ -95,7 +119,7 @@ export default function Bookmarks() {
                     <span className="font-medium text-gray-800">College:</span> {event.college}
                   </p>
                   <p>
-                    <span className="font-medium text-gray-800">Starts:</span> {formatDate(event.startDate)}
+                    <span className="font-medium text-gray-800">Deadline:</span> {formatDate(event.registrationDeadline)}
                   </p>
                 </div>
 

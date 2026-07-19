@@ -17,6 +17,8 @@ export default function ManageEvents() {
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [editingEventId, setEditingEventId] = useState(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncReport, setSyncReport] = useState(null)
 
   // Form State
   const [formData, setFormData] = useState({
@@ -33,6 +35,7 @@ export default function ManageEvents() {
     venue: '',
     image: '',
     eventLink: '',
+    isPublic: false,
   })
 
   const loadMyEvents = async () => {
@@ -47,6 +50,20 @@ export default function ManageEvents() {
       console.error('Failed to load events', err)
     } finally {
       setLoadingEvents(false)
+    }
+  }
+
+  const handleSync = async () => {
+    try {
+      setSyncing(true)
+      setSyncReport(null)
+      const res = await api.post('/aggregation/sync')
+      setSyncReport(res.data.report)
+      loadMyEvents()
+    } catch (err) {
+      setErrorMessage(err.response?.data?.message || 'Sync failed. Please try again.')
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -71,10 +88,10 @@ export default function ManageEvents() {
   }
 
   const handleChange = (e) => {
-    const { name, value } = e.target
+    const { name, value, type, checked } = e.target
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: type === 'checkbox' ? checked : value,
     }))
   }
 
@@ -94,6 +111,7 @@ export default function ManageEvents() {
       venue: event.venue || '',
       image: event.image || '',
       eventLink: event.eventLink || '',
+      isPublic: event.isPublic || false,
     })
     setSuccessMessage('')
     setErrorMessage('')
@@ -116,6 +134,7 @@ export default function ManageEvents() {
       venue: '',
       image: '',
       eventLink: '',
+      isPublic: false,
     })
     setSuccessMessage('')
     setErrorMessage('')
@@ -182,6 +201,7 @@ export default function ManageEvents() {
         venue: '',
         image: '',
         eventLink: '',
+        isPublic: false,
       })
       setEditingEventId(null)
       loadMyEvents()
@@ -198,11 +218,63 @@ export default function ManageEvents() {
     <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
       {/* Header Banner */}
       <div className="mb-8 rounded-3xl bg-gradient-to-r from-teal-700 to-emerald-600 p-8 text-white shadow-xl">
-        <p className="text-sm uppercase tracking-[0.3em] text-teal-100">Admin Control Panel</p>
-        <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Manage Campus Events</h1>
-        <p className="mt-2 max-w-2xl text-teal-50">
-          Create, edit, and configure campus events and registration details.
-        </p>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <p className="text-sm uppercase tracking-[0.3em] text-teal-100">Admin Control Panel</p>
+            <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Manage Campus Events</h1>
+            <p className="mt-2 max-w-2xl text-teal-50">
+              Create, edit, and configure campus events and registration details.
+            </p>
+          </div>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex items-center gap-2 rounded-xl bg-white/10 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur-md transition hover:bg-white/20 hover:shadow-lg disabled:opacity-50 border border-white/20"
+          >
+            {syncing ? (
+              <>
+                <svg className="h-4 w-4 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Syncing...
+              </>
+            ) : (
+              <>
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Auto-Sync Events
+              </>
+            )}
+          </button>
+        </div>
+
+        {syncReport && (
+          <div className="mt-6 rounded-2xl bg-white/10 backdrop-blur-md p-5 border border-white/20 text-teal-50 animate-fadeIn">
+            <h3 className="font-bold text-white text-lg flex items-center gap-2">
+              <span className="text-xl">✅</span> Sync Successful
+            </h3>
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="bg-white/10 rounded-xl p-3">
+                <p className="text-xs text-teal-100 uppercase font-semibold">Devfolio</p>
+                <p className="text-2xl font-bold text-white mt-1">{syncReport.devfolioCount} <span className="text-sm font-normal">new</span></p>
+              </div>
+              <div className="bg-white/10 rounded-xl p-3">
+                <p className="text-xs text-teal-100 uppercase font-semibold">Unstop</p>
+                <p className="text-2xl font-bold text-white mt-1">{syncReport.unstopCount} <span className="text-sm font-normal">new</span></p>
+              </div>
+              <div className="bg-white/10 rounded-xl p-3">
+                <p className="text-xs text-teal-100 uppercase font-semibold">Duplicates</p>
+                <p className="text-2xl font-bold text-white mt-1">{syncReport.duplicatesSkipped} <span className="text-sm font-normal">skipped</span></p>
+              </div>
+              <div className="bg-white/10 rounded-xl p-3">
+                <p className="text-xs text-teal-100 uppercase font-semibold">Status</p>
+                <p className="text-lg font-bold text-white mt-1 capitalize">{syncReport.status}</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-8 lg:grid-cols-3">
@@ -442,6 +514,24 @@ export default function ManageEvents() {
                   Accepts Google Forms, Unstop, Devfolio, Microsoft Forms, or official college domains.
                 </p>
               </div>
+            </div>
+
+            {/* Is Public Toggle */}
+            <div className="flex items-center gap-3 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+              <input
+                type="checkbox"
+                id="isPublic"
+                name="isPublic"
+                checked={formData.isPublic}
+                onChange={handleChange}
+                className="h-5 w-5 rounded border-gray-300 text-teal-600 focus:ring-teal-500 transition"
+              />
+              <label htmlFor="isPublic" className="text-sm font-semibold text-gray-800 cursor-pointer">
+                Mark as Public Event
+                <span className="block text-xs font-normal text-gray-500 mt-0.5">
+                  Checking this will notify all users across the platform, regardless of their college or interests.
+                </span>
+              </label>
             </div>
 
             {/* Submit & Cancel Buttons */}

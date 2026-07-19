@@ -49,11 +49,59 @@ export default function EventDetails() {
     )
   }
 
+  const renderDeadlineBanner = () => {
+    if (!event || !event.registrationDeadline) return null;
+    const now = new Date();
+    const deadline = new Date(event.registrationDeadline);
+    const timeToDeadline = deadline.getTime() - now.getTime();
+    
+    if (timeToDeadline < 0) return null;
+    if (timeToDeadline <= 3 * 60 * 60 * 1000) {
+      return (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r-2xl">
+          <div className="flex">
+            <div className="flex-shrink-0"><span className="text-xl">🚨</span></div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700 font-bold">Last 3 hours remaining!</p>
+              <p className="text-xs text-red-600 mt-1">Hurry up, registration is closing very soon.</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    if (timeToDeadline <= 24 * 60 * 60 * 1000) {
+      return (
+        <div className="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6 rounded-r-2xl">
+          <div className="flex">
+            <div className="flex-shrink-0"><span className="text-xl">⚠</span></div>
+            <div className="ml-3">
+              <p className="text-sm text-orange-700 font-bold">Registration closes tomorrow!</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    if (timeToDeadline <= 48 * 60 * 60 * 1000) {
+      return (
+        <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-6 rounded-r-2xl">
+          <div className="flex">
+            <div className="flex-shrink-0"><span className="text-xl">⏰</span></div>
+            <div className="ml-3">
+              <p className="text-sm text-amber-700 font-bold">Registration closes in 48 hours.</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-xl">
       {event.image ? <img src={event.image} alt={event.title} className="h-72 w-full object-cover" /> : null}
 
       <div className="p-8">
+        {renderDeadlineBanner()}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-sm uppercase tracking-[0.25em] text-teal-600">Event details</p>

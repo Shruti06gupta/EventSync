@@ -5,6 +5,12 @@ import { useAuth } from '../context/AuthContext'
 export default function Profile() {
   const { user, fetchProfile } = useAuth()
   const [form, setForm] = useState({ name: '', college: '', interests: [] })
+  const [notificationPreferences, setNotificationPreferences] = useState({
+    email: true,
+    deadlineReminders: true,
+    newEvents: true,
+    weeklyDigest: true
+  })
   const [newInterest, setNewInterest] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState(null)
@@ -17,8 +23,31 @@ export default function Profile() {
         college: user.college || '',
         interests: user.interests || [],
       })
+      
+      const fetchPrefs = async () => {
+        try {
+          const res = await api.get('/user/notification-preferences')
+          if (res.data.notificationPreferences) {
+            setNotificationPreferences(res.data.notificationPreferences)
+          }
+        } catch (err) {
+          console.error('Failed to fetch notification preferences', err)
+        }
+      }
+      fetchPrefs()
     }
   }, [user])
+
+  const handleTogglePref = async (key) => {
+    const updated = { ...notificationPreferences, [key]: !notificationPreferences[key] }
+    setNotificationPreferences(updated)
+    try {
+      await api.patch('/user/notification-preferences', { [key]: updated[key] })
+    } catch (err) {
+      console.error('Failed to update preference', err)
+      setNotificationPreferences(notificationPreferences) // revert on error
+    }
+  }
 
   const handleAddInterest = (e) => {
     e.preventDefault()
@@ -191,6 +220,32 @@ export default function Profile() {
               </button>
             </div>
           </form>
+
+          {/* Notification Preferences */}
+          <div className="mt-8 pt-8 border-t border-gray-100">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-6">Notification Preferences</h3>
+            <div className="space-y-4">
+              {[
+                { key: 'email', label: 'Email Notifications', desc: 'Receive updates directly to your inbox.' },
+                { key: 'deadlineReminders', label: 'Deadline Reminders', desc: 'Get notified when an event registration is closing soon (48h, 24h, 3h).' },
+                { key: 'newEvents', label: 'New Event Alerts', desc: 'Get notified when a new event matches your interests or college.' },
+              ].map((pref) => (
+                <div key={pref.key} className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 bg-gray-50/50">
+                  <div className="pr-4">
+                    <p className="text-sm font-bold text-gray-900">{pref.label}</p>
+                    <p className="text-xs text-gray-500 mt-1">{pref.desc}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleTogglePref(pref.key)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${notificationPreferences[pref.key] ? 'bg-teal-500' : 'bg-gray-200'}`}
+                  >
+                    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${notificationPreferences[pref.key] ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
       </div>

@@ -21,12 +21,13 @@ export const AuthProvider = ({ children }) => {
   }
 
   useEffect(() => {
-    fetchProfile()
+    setLoading(false)
   }, [])
 
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password })
-    await fetchProfile()
+    setUser(res.data.user)
+    setLoading(false)
     return res.data
   }
 
@@ -38,6 +39,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     await api.post('/auth/logout')
     setUser(null)
+    setLoading(false)
   }
 
   return (

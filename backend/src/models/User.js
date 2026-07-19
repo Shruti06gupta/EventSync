@@ -38,6 +38,12 @@ const userSchema = new mongoose.Schema(
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Event' }],
       default: [],
     },
+    notificationPreferences: {
+      email: { type: Boolean, default: true },
+      deadlineReminders: { type: Boolean, default: true },
+      newEvents: { type: Boolean, default: true },
+      weeklyDigest: { type: Boolean, default: true }
+    },
     resetOTP: {
       type: String,
       default: null,

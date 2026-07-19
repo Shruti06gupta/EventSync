@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../context/NotificationsContext'
+import Toast from './Toast'
 
 const formatTimestamp = (value) => {
   const date = new Date(value)
@@ -22,10 +23,11 @@ const formatTimestamp = (value) => {
 
 export default function Navbar() {
   const { user, logout } = useAuth()
-  const { notifications, unreadCount, loading, error, loadNotifications, markNotificationAsRead } = useNotifications()
+  const { notifications, unreadCount, loading, error, liveToast, clearToast, loadNotifications, markNotificationAsRead } = useNotifications()
   const [isOpen, setIsOpen] = useState(false)
   const [actionError, setActionError] = useState('')
   const dropdownRef = useRef(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -67,10 +69,16 @@ export default function Navbar() {
     }
   }
 
-  const handleMarkAsRead = async (id) => {
+  const handleMarkAsRead = async (notification) => {
     try {
       setActionError('')
-      await markNotificationAsRead(id)
+      if (!notification.read) {
+        await markNotificationAsRead(notification._id)
+      }
+      setIsOpen(false)
+      if (notification.event) {
+        navigate(`/events/${notification.event}`)
+      }
     } catch (err) {
       setActionError(err.response?.data?.message || 'Unable to update notification.')
     }
@@ -145,7 +153,7 @@ export default function Navbar() {
                           <button
                             key={notification._id}
                             type="button"
-                            onClick={() => handleMarkAsRead(notification._id)}
+                            onClick={() => handleMarkAsRead(notification)}
                             className={`w-full rounded-2xl border px-4 py-3 text-left transition hover:border-teal-200 hover:bg-teal-50 ${
                               notification.read
                                 ? 'border-gray-100 bg-white'
@@ -205,6 +213,11 @@ export default function Navbar() {
           </div>
         )}
       </div>
+      <Toast
+        notification={liveToast}
+        onClose={clearToast}
+        onClick={handleMarkAsRead}
+      />
     </nav>
   )
 }

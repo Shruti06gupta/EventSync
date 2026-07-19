@@ -31,6 +31,12 @@ const eventSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    source: {
+      type: String,
+      enum: ['devfolio', 'unstop', 'manual'],
+      default: 'manual',
+      trim: true,
+    },
     startDate: {
       type: Date,
       required: [true, 'Start date is required'],
@@ -81,14 +87,22 @@ const eventSchema = new mongoose.Schema(
         message: 'Event link must be a valid URL starting with http:// or https://',
       },
     },
+    isPublic: {
+      type: Boolean,
+      default: false,
+    },
     isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    isAggregated: {
       type: Boolean,
       default: false,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'createdBy is required'],
+      required: function() { return !this.isAggregated; },
     },
   },
   {
