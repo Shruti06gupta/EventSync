@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const User = require('../models/User');
 const sendEmail = require('../utils/email');
 
@@ -10,33 +10,37 @@ const forgotPassword = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const hashedOTP = await bcrypt.hash(otp, 10);
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiry = Date.now() + 30 * 60 * 1000; // 30 minutes
 
-    user.resetOTP = hashedOTP;
-    user.resetOTPExpiry = Date.now() + 2 * 60 * 1000; // 2 minutes
+    user.resetOTP = token;
+    user.resetOTPExpiry = expiry;
     await user.save();
 
-    const subject = 'EventSync Password Reset OTP';
-    const text = `Your OTP for password reset is: ${otp}. It expires in 2 minutes.`;
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const resetLink = `${clientUrl}/reset-password?token=${token}`;
+
+    const subject = 'EventSync Password Reset';
+    const text = `You requested a password reset. Click the link below to reset your password. It expires in 30 minutes.\n\n${resetLink}\n\nIf you did not request this, please ignore this email.`;
+    const html = `<p>You requested a password reset. Click the link below to reset your password. It expires in 30 minutes.</p><p><a href="${resetLink}">Reset Password</a></p><p>If the link does not work, copy and paste this URL into your browser:</p><p>${resetLink}</p><p>If you did not request this, please ignore this email.</p>`;
 
     try {
-      const emailResult = await sendEmail({ to: user.email, subject, text });
+      const emailResult = await sendEmail({ to: user.email, subject, text, html });
 
       if (emailResult?.preview) {
         return res.status(200).json({
-          message: 'OTP generated, but email is not configured. Check the server console for the OTP.',
+          message: 'Password reset link generated, but email is not configured. Check the server console for the reset link.',
         });
       }
     } catch (mailErr) {
-      console.error('Failed to send OTP email:', mailErr.message);
+      console.error('Failed to send reset email:', mailErr.message);
       return res.status(500).json({
-        message: 'Failed to send OTP email',
+        message: 'Failed to send reset email',
         error: mailErr.message,
       });
     }
 
-    return res.status(200).json({ message: 'OTP sent to email' });
+    return res.status(200).json({ message: 'Password reset link sent to email' });
   } catch (error) {
     return res.status(500).json({ message: 'Forgot password failed', error: error.message });
   }
@@ -44,18 +48,19 @@ const forgotPassword = async (req, res) => {
 
 const resetPassword = async (req, res) => {
   try {
-    const { email, otp, newPassword } = req.body;
-    if (!email || !otp || !newPassword) return res.status(400).json({ message: 'Email, OTP and newPassword are required' });
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) return res.status(400).json({ message: 'Token and newPassword are required' });
 
-    const user = await User.findOne({ email });
-    if (!user || !user.resetOTP || !user.resetOTPExpiry) return res.status(400).json({ message: 'Invalid or expired OTP' });
-
-    if (Date.now() > user.resetOTPExpiry.getTime()) {
-      return res.status(400).json({ message: 'OTP has expired' });
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
     }
 
-    const isValid = await bcrypt.compare(otp, user.resetOTP);
-    if (!isValid) return res.status(400).json({ message: 'Invalid OTP' });
+    const user = await User.findOne({ resetOTP: token });
+    if (!user || !user.resetOTP || !user.resetOTPExpiry) return res.status(400).json({ message: 'Invalid or expired reset token' });
+
+    if (Date.now() > user.resetOTPExpiry.getTime()) {
+      return res.status(400).json({ message: 'Reset token has expired' });
+    }
 
     user.password = newPassword; // will be hashed by pre-save hook
     user.resetOTP = null;
