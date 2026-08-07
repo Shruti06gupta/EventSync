@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import api from '../api'
 import BookmarkButton from '../components/BookmarkButton'
 import useBookmarks from '../hooks/useBookmarks'
+import { getEventImage } from '../utils/imageHelper'
 
 const formatDate = (value) =>
   new Intl.DateTimeFormat('en-IN', {
@@ -12,6 +13,7 @@ const formatDate = (value) =>
 
 export default function EventDetails() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [event, setEvent] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -98,7 +100,11 @@ export default function EventDetails() {
 
   return (
     <div className="w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-xl">
-      {event.image ? <img src={event.image} alt={event.title} className="h-72 w-full object-cover" /> : null}
+      <img
+        src={getEventImage(event.image, event.title, event.organizer, event.category, event.source)}
+        alt={event.title}
+        className="h-72 w-full object-cover shrink-0"
+      />
 
       <div className="p-8">
         {renderDeadlineBanner()}
@@ -113,9 +119,12 @@ export default function EventDetails() {
               isBookmarked={isBookmarked(event._id)}
               onToggle={toggleBookmark}
             />
-            <Link to="/events" className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700">
-              Back to events
-            </Link>
+            <button
+              onClick={() => navigate(-1)}
+              className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold bg-gray-50 text-gray-700 hover:bg-gray-100 transition"
+            >
+              Back
+            </button>
           </div>
         </div>
 
@@ -175,6 +184,12 @@ export default function EventDetails() {
               </a>
             );
           })()}
+          <button
+            onClick={() => navigate(-1)}
+            className="rounded-xl border border-gray-300 bg-white px-6 py-3 text-sm font-bold text-gray-750 hover:bg-gray-50 hover:border-gray-400 transition duration-150"
+          >
+            Back
+          </button>
           <Link to="/events" className="rounded-xl border border-gray-300 px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition duration-150">
             Explore more events
           </Link>

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 
 export default function Profile() {
   const { user, fetchProfile } = useAuth()
-  const [form, setForm] = useState({ name: '', college: '', interests: [] })
+  const [form, setForm] = useState({ name: '', college: '', interests: [], profilePicture: null })
   const [notificationPreferences, setNotificationPreferences] = useState({
     email: true,
     deadlineReminders: true,
@@ -12,6 +12,7 @@ export default function Profile() {
     weeklyDigest: true
   })
   const [newInterest, setNewInterest] = useState('')
+  const [preview, setPreview] = useState(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState(null)
   const [messageType, setMessageType] = useState('') // 'success' or 'error'
@@ -22,7 +23,9 @@ export default function Profile() {
         name: user.name || '',
         college: user.college || '',
         interests: user.interests || [],
+        profilePicture: user.profilePicture || null,
       })
+      setPreview(user.profilePicture || null)
       
       const fetchPrefs = async () => {
         try {
@@ -37,6 +40,33 @@ export default function Profile() {
       fetchPrefs()
     }
   }, [user])
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 150;
+        canvas.height = 150;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, 150, 150);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        setPreview(dataUrl);
+        setForm(prev => ({ ...prev, profilePicture: dataUrl }));
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDeletePicture = () => {
+    setPreview(null);
+    setForm(prev => ({ ...prev, profilePicture: null }));
+  };
 
   const handleTogglePref = async (key) => {
     const updated = { ...notificationPreferences, [key]: !notificationPreferences[key] }
@@ -102,14 +132,41 @@ export default function Profile() {
       <div className="overflow-hidden rounded-3xl bg-white shadow-xl border border-gray-100">
         
         {/* Banner / Avatar Header */}
-        <div className="relative h-32 bg-gradient-to-r from-teal-600 to-cyan-500">
-          <div className="absolute -bottom-10 left-8 flex items-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white text-xl font-bold text-teal-600 shadow-md ring-4 ring-white">
-              {getInitials(user?.name)}
+        <div className="relative h-32 bg-gradient-to-r from-teal-600 to-cyan-500 animate-fadeIn">
+          <div className="absolute -bottom-10 left-8 flex items-end">
+            <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-white text-xl font-bold text-teal-600 shadow-md ring-4 ring-white overflow-hidden shrink-0">
+              {preview ? (
+                <img src={preview} alt={user?.name} className="h-full w-full object-cover" />
+              ) : (
+                getInitials(user?.name)
+              )}
             </div>
-            <div className="ml-4 mt-8">
-              <h2 className="text-xl font-bold text-gray-900">{user?.name}</h2>
-              <p className="text-xs text-gray-500 font-medium">{user?.email} • {user?.role}</p>
+            <div className="ml-4 mt-8 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 line-clamp-1">{user?.name}</h2>
+                <p className="text-xs text-gray-500 font-medium">{user?.email} • {user?.role}</p>
+              </div>
+              <div className="flex items-center gap-1.5 self-start sm:self-center">
+                <label htmlFor="avatar-file" className="cursor-pointer text-[10px] uppercase tracking-wider font-extrabold bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-700 px-3 py-1.5 rounded-xl transition duration-150 shadow-sm">
+                  Upload Group
+                </label>
+                <input
+                  id="avatar-file"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                {preview && (
+                  <button
+                    type="button"
+                    onClick={handleDeletePicture}
+                    className="text-[10px] uppercase tracking-wider font-extrabold bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 px-3 py-1.5 rounded-xl transition duration-150 shadow-sm"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

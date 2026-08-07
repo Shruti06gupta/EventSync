@@ -31,7 +31,8 @@ const sendEmail = async ({ to, subject, text, html }) => {
 
   const transporter = nodemailer.createTransport(transportConfig);
 
-  const from = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  const fromAddress = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  const from = `"EventSync" <${fromAddress}>`;
 
   try {
     const info = await transporter.sendMail({ from, to, subject, text, html });

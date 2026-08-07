@@ -16,7 +16,10 @@ const getEvents = async (req, res) => {
 
     const filter = {
       isVerified: true,
-      startDate: { $gte: now },
+      $or: [
+        { startDate: { $gte: now } },
+        { registrationDeadline: { $gte: now } }
+      ]
     };
 
     const andConditions = [];
@@ -49,7 +52,6 @@ const getEvents = async (req, res) => {
       if (source === 'manual') {
         filter.source = 'manual';
         filter.isAggregated = false;
-        filter.createdBy = { $exists: true, $ne: null };
       } else {
         andConditions.push({
           $or: [
@@ -84,10 +86,12 @@ const getEvents = async (req, res) => {
 
     const totalEvents = allEvents.length;
     const events = allEvents.slice(skip, skip + limit);
+    const categories = await Event.distinct('category', { isVerified: true });
 
     return res.status(200).json({
       message: 'Events fetched successfully',
       events,
+      categories,
       pagination: {
         page,
         limit,

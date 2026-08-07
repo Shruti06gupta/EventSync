@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import api from '../api'
 import BookmarkButton from '../components/BookmarkButton'
 import useBookmarks from '../hooks/useBookmarks'
+import { getEventImage } from '../utils/imageHelper'
 
 const formatDate = (value) =>
   new Intl.DateTimeFormat('en-IN', {
@@ -21,6 +22,7 @@ export default function Events() {
   const [mode, setMode] = useState('')
   const [college, setCollege] = useState('')
   const [source, setSource] = useState('')
+  const [availableCategories, setAvailableCategories] = useState([])
   const { isBookmarked, toggleBookmark } = useBookmarks()
 
   useEffect(() => {
@@ -37,12 +39,15 @@ export default function Events() {
             category: category || undefined,
             mode: mode || undefined,
             college: college || undefined,
-              source: source || undefined,
+            source: source || undefined,
           },
         })
 
         setEvents(res.data.events || [])
         setPagination(res.data.pagination || { totalPages: 1, totalEvents: 0, hasNextPage: false })
+        if (res.data.categories) {
+          setAvailableCategories(res.data.categories)
+        }
       } catch (err) {
         setError(err.response?.data?.message || 'Unable to load events right now.')
       } finally {
@@ -52,10 +57,6 @@ export default function Events() {
 
     loadEvents()
   }, [page, search, category, mode, college, source])
-
-  const categories = useMemo(() => {
-    return [...new Set(events.map((event) => event.category).filter(Boolean))]
-  }, [events])
 
   const resetPageAndFilters = (setter) => (value) => {
     setPage(1)
@@ -73,7 +74,7 @@ export default function Events() {
         <div className="mt-6 flex flex-wrap gap-3 text-sm">
           <span className="rounded-full bg-white/15 px-4 py-2">{pagination.totalEvents} verified events</span>
           <span className="rounded-full bg-white/15 px-4 py-2">{pagination.totalPages} pages</span>
-          {categories.slice(0, 3).map((category) => (
+          {availableCategories.slice(0, 3).map((category) => (
             <span key={category} className="rounded-full bg-white/15 px-4 py-2">
               {category}
             </span>
@@ -82,14 +83,14 @@ export default function Events() {
       </div>
 
       <div className="mb-6 rounded-3xl bg-white p-5 shadow-sm">
-        <div className="grid gap-4 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-gray-700">Search</span>
             <input
               type="text"
               value={search}
               onChange={(event) => resetPageAndFilters(setSearch)(event.target.value)}
-              placeholder="Search title, organizer, college..."
+              placeholder="Search title..."
               className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-teal-500"
             />
           </label>
@@ -102,7 +103,7 @@ export default function Events() {
               className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-teal-500"
             >
               <option value="">All categories</option>
-              {categories.map((item) => (
+              {availableCategories.map((item) => (
                 <option key={item} value={item}>
                   {item}
                 </option>
@@ -188,24 +189,23 @@ export default function Events() {
             {events.map((event) => (
               <article
                 key={event._id}
-                className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+                className="flex flex-col h-full overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
               >
-                {event.image ? (
-                  <img src={event.image} alt={event.title} className="h-48 w-full object-cover" />
-                ) : (
-                  <div className="flex h-48 items-center justify-center bg-gradient-to-br from-teal-100 to-cyan-100 text-teal-700">
-                    EventSync
-                  </div>
-                )}
-                <div className="p-5">
+                <img
+                  src={getEventImage(event.image, event.title, event.organizer, event.category, event.source)}
+                  alt={event.title}
+                  className="h-48 w-full object-cover shrink-0"
+                />
+                
+                <div className="flex flex-col flex-grow p-5">
                   <div className="flex items-start justify-between gap-3">
-                    <h2 className="text-lg font-semibold text-gray-900">{event.title}</h2>
+                    <h2 className="text-lg font-semibold text-gray-900 line-clamp-1">{event.title}</h2>
                     <span className="shrink-0 rounded-full bg-teal-100 px-3 py-1 text-xs font-medium text-teal-700">
                       {event.mode}
                     </span>
                   </div>
 
-                  <p className="mt-3 line-clamp-3 text-sm text-gray-600">{event.description}</p>
+                  <p className="mt-3 line-clamp-3 text-sm text-gray-600 flex-grow">{event.description}</p>
 
                   <div className="mt-4 space-y-2 text-sm text-gray-600">
                     <p>
@@ -282,25 +282,39 @@ export default function Events() {
             ))}
           </div>
 
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => setPage((currentPage) => Math.max(currentPage - 1, 1))}
               disabled={page === 1}
-              className="rounded-xl border border-gray-300 bg-white px-5 py-2 text-sm font-semibold text-gray-700 transition hover:border-teal-300 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-teal-300 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Previous
+              Prev
             </button>
 
-            <span className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
-              {page} / {pagination.totalPages}
-            </span>
+            {Array.from({ length: pagination.totalPages }, (_, index) => {
+              const pageNum = index + 1;
+              return (
+                <button
+                  key={pageNum}
+                  type="button"
+                  onClick={() => setPage(pageNum)}
+                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                    page === pageNum
+                      ? 'bg-teal-600 text-white shadow-md'
+                      : 'bg-white border border-gray-300 text-gray-700 hover:border-teal-300 hover:text-teal-600'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
 
             <button
               type="button"
               onClick={() => setPage((currentPage) => Math.min(currentPage + 1, pagination.totalPages))}
               disabled={!pagination.hasNextPage}
-              className="rounded-xl border border-gray-300 bg-white px-5 py-2 text-sm font-semibold text-gray-700 transition hover:border-teal-300 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-teal-300 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Next
             </button>

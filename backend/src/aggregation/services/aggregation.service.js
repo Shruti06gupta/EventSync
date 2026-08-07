@@ -6,6 +6,7 @@ const { deduplicateEvents } = require('./deduplication.service');
 const { categorizeEvent } = require('./categorization.service');
 const { createEventNotifications } = require('../../services/notificationService');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { getEventImage } = require('../../utils/imageHelper');
 
 const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
 
@@ -68,6 +69,7 @@ const runAggregation = async (actorUserId = null) => {
           eventData.source = 'manual';
         }
       }
+      eventData.image = getEventImage(eventData.image, eventData.title, eventData.organizer, eventData.category, eventData.source);
       const newEvent = new Event(eventData);
       await newEvent.save();
       insertedEvents.push(newEvent);
