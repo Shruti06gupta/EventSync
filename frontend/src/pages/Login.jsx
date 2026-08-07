@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
@@ -10,6 +10,8 @@ export default function Login() {
   const [error, setError] = useState(null)
   const { login } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const from = location.state?.from || '/profile'
 
   const submit = async (e) => {
     e.preventDefault()
@@ -17,7 +19,7 @@ export default function Login() {
     setError(null)
     try {
       await login(email, password)
-      navigate('/profile')
+      navigate(from, { replace: true })
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed')
     } finally { setLoading(false) }

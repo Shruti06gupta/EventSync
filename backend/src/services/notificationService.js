@@ -16,9 +16,9 @@ const normalizeNotificationLimit = (value) => {
 
 const buildNewEventNotificationMessage = (eventTitle, category, college, isPublic) => {
   if (isPublic) {
-    return `New ${category} has been added: ${eventTitle}`;
+    return `New Event: ${eventTitle}`;
   }
-  return `New ${category} available for ${college} students: ${eventTitle}`;
+  return `New Event available for ${college} students: ${eventTitle}`;
 };
 
 const createEventNotifications = async ({ actorUserId, eventId, eventTitle, eventCategory, eventCollege, isPublic }) => {

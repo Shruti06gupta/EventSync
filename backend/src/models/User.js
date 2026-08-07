@@ -34,6 +34,10 @@ const userSchema = new mongoose.Schema(
       enum: ['student', 'admin'],
       default: 'student',
     },
+    profilePicture: {
+      type: String,
+      default: null,
+    },
     bookmarks: {
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Event' }],
       default: [],

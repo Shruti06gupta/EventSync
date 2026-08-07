@@ -9,13 +9,14 @@ const getProfile = async (req, res) => {
       college: req.user.college,
       interests: req.user.interests,
       role: req.user.role,
+      profilePicture: req.user.profilePicture,
     },
   });
 };
 
 const updateProfile = async (req, res) => {
   try {
-    const { name, college, interests } = req.body;
+    const { name, college, interests, profilePicture } = req.body;
 
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -25,6 +26,7 @@ const updateProfile = async (req, res) => {
     if (name !== undefined) user.name = name;
     if (college !== undefined) user.college = college;
     if (interests !== undefined) user.interests = Array.isArray(interests) ? interests : user.interests;
+    if (profilePicture !== undefined) user.profilePicture = profilePicture;
 
     await user.save();
 
@@ -37,6 +39,7 @@ const updateProfile = async (req, res) => {
         college: user.college,
         interests: user.interests,
         role: user.role,
+        profilePicture: user.profilePicture,
       },
     });
   } catch (error) {
