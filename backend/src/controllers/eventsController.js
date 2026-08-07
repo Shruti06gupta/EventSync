@@ -149,6 +149,10 @@ const createEvent = async (req, res) => {
       }
     }
 
+    if (new Date(registrationDeadline) > new Date(startDate)) {
+      return res.status(400).json({ message: 'Registration deadline cannot be after the event start date.' });
+    }
+
     const newEvent = new Event({
       title,
       description,
@@ -173,6 +177,8 @@ const createEvent = async (req, res) => {
       actorUserId: req.user._id,
       eventId: newEvent._id,
       eventTitle: newEvent.title,
+      eventCategory: newEvent.category,
+      eventTags: newEvent.tags,
     });
 
     return res.status(201).json({
@@ -255,6 +261,13 @@ const updateEvent = async (req, res) => {
     }
     if (image !== undefined) event.image = image;
     if (eventLink !== undefined) event.eventLink = eventLink;
+
+    // Validate that the registration deadline is not after the event start date
+    const effectiveStartDate = startDate !== undefined ? new Date(startDate) : new Date(event.startDate);
+    const effectiveDeadline = registrationDeadline !== undefined ? new Date(registrationDeadline) : new Date(event.registrationDeadline);
+    if (effectiveDeadline > effectiveStartDate) {
+      return res.status(400).json({ message: 'Registration deadline cannot be after the event start date.' });
+    }
 
     await event.save();
     return res.status(200).json({

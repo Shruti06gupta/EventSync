@@ -17,22 +17,27 @@ export default function Events() {
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({ totalPages: 1, totalEvents: 0 })
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [category, setCategory] = useState('')
   const [mode, setMode] = useState('')
   const [college, setCollege] = useState('')
   const { isBookmarked, toggleBookmark } = useBookmarks()
 
   useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  useEffect(() => {
     const loadEvents = async () => {
       try {
-        setLoading(true)
         setError('')
 
         const res = await api.get('/events', {
           params: {
             page,
             limit: 9,
-            search: search || undefined,
+            search: debouncedSearch || undefined,
             category: category || undefined,
             mode: mode || undefined,
             college: college || undefined,
@@ -49,7 +54,8 @@ export default function Events() {
     }
 
     loadEvents()
-  }, [page, search, category, mode, college])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch, category, mode, college])
 
   const categories = useMemo(() => {
     return [...new Set(events.map((event) => event.category).filter(Boolean))]

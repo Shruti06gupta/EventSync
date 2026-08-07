@@ -34,14 +34,28 @@ const safeCreateNotifications = async (operation, context = {}) => {
   }
 };
 
-const createEventNotifications = async ({ actorUserId, eventId, eventTitle }) => {
-  const recipients = await User.find({ _id: { $ne: actorUserId } }).select('_id').lean();
+const createEventNotifications = async ({ actorUserId, eventId, eventTitle, eventCategory, eventTags }) => {
+  const recipients = await User.find({ _id: { $ne: actorUserId } }).select('_id interests').lean();
 
   if (recipients.length === 0) {
     return { insertedCount: 0 };
   }
 
-  const notifications = recipients.map((user) => ({
+  const eventInterests = [eventCategory, ...(eventTags || [])]
+    .filter(Boolean)
+    .map((value) => value.trim().toLowerCase());
+
+  const matchingRecipients = recipients.filter((user) => {
+    if (eventInterests.length === 0) return false;
+    const userInterests = (user.interests || []).map((value) => value.trim().toLowerCase());
+    return userInterests.some((interest) => eventInterests.includes(interest));
+  });
+
+  if (matchingRecipients.length === 0) {
+    return { insertedCount: 0 };
+  }
+
+  const notifications = matchingRecipients.map((user) => ({
     user: user._id,
     type: 'event_created',
     event: eventId,

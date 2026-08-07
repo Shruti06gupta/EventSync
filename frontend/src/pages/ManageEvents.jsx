@@ -138,7 +138,7 @@ export default function ManageEvents() {
     }
 
     if (deadline > start) {
-      setErrorMessage('Registration deadline must be before or equal to the start date.')
+      setErrorMessage('Registration deadline cannot be after the event start date.')
       return
     }
 
@@ -493,7 +493,7 @@ export default function ManageEvents() {
                       dateStyle: 'medium',
                     })}
                   </p>
-                  
+
                   <div className="mt-3 flex items-center justify-between gap-2 border-t border-gray-200/50 pt-2.5">
                     {event.eventLink ? (
                       <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-2.5 py-0.5 rounded-full">

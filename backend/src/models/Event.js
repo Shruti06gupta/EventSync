@@ -48,6 +48,12 @@ const eventSchema = new mongoose.Schema(
     registrationDeadline: {
       type: Date,
       required: [true, 'Registration deadline is required'],
+      validate: {
+        validator: function (value) {
+          return !this.startDate || value <= this.startDate;
+        },
+        message: 'Registration deadline cannot be after the event start date.',
+      },
     },
     mode: {
       type: String,
