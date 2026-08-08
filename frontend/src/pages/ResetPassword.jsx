@@ -1,37 +1,31 @@
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../api'
 
 export default function ResetPassword() {
-  const [email, setEmail] = useState('')
-  const [otp, setOtp] = useState('')
+  const [searchParams] = useSearchParams()
+  const token = searchParams.get('token') || ''
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState(null)
+  const [message, setMessage] = useState(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const navigate = useNavigate()
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
   const submit = async (e) => {
     e.preventDefault()
     setError(null)
 
-    if (!email || !otp || !newPassword || !confirmPassword) {
+    if (!token) {
+      setError('Invalid or missing reset token')
+      return
+    }
+
+    if (!newPassword || !confirmPassword) {
       setError('All fields are required')
-      return
-    }
-
-    if (!emailRegex.test(email)) {
-      setError('Please enter a valid email')
-      return
-    }
-
-    if (!/^\d{6}$/.test(otp)) {
-      setError('OTP must be 6 digits')
       return
     }
 
@@ -47,8 +41,9 @@ export default function ResetPassword() {
 
     setLoading(true)
     try {
-      const res = await api.post('/auth/reset-password', { email, otp, newPassword })
+      const res = await api.post('/auth/reset-password', { token, newPassword })
       setSuccess(true)
+      setMessage(res.data.message)
       setTimeout(() => {
         navigate('/login')
       }, 2000)
@@ -70,44 +65,30 @@ export default function ResetPassword() {
     )
   }
 
+  if (!token) {
+    return (
+      <div className="w-full max-w-md p-8 rounded-2xl glass shadow-lg text-center">
+        <h1 className="text-2xl font-semibold text-teal-700 mb-4">Invalid Reset Link</h1>
+        <p className="text-gray-600 mb-6">This password reset link is invalid or missing. Please request a new one.</p>
+        <Link to="/forgot-password" className="text-teal-600 underline font-semibold">Request a new reset link</Link>
+      </div>
+    )
+  }
+
   return (
     <div className="w-full max-w-md p-8 rounded-2xl glass shadow-lg">
       <h1 className="text-2xl font-semibold text-teal-700 mb-2">Reset Password</h1>
-      <p className="text-gray-600 text-sm mb-6">Enter the OTP sent to your email and choose a new password.</p>
+      <p className="text-gray-600 text-sm mb-6">Choose a new password for your account.</p>
 
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-sm text-gray-600 mb-2">Email Address</label>
-          <input 
-            type="email"
-            value={email} 
-            onChange={e => setEmail(e.target.value)} 
-            placeholder="enter your email" 
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600"
-            disabled={loading}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm text-gray-600 mb-2">OTP (6-digit)</label>
-          <input 
-            value={otp} 
-            onChange={e => setOtp(e.target.value.slice(0, 6))} 
-            placeholder="000000" 
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600"
-            disabled={loading}
-            maxLength="6"
-          />
-        </div>
-
-        <div>
           <label className="block text-sm text-gray-600 mb-2">New Password</label>
           <div className="relative">
-            <input 
+            <input
               type={showNewPassword ? 'text' : 'password'}
-              value={newPassword} 
-              onChange={e => setNewPassword(e.target.value)} 
-              placeholder="enter new password" 
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              placeholder="enter new password"
               className="w-full px-4 py-2 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600"
               disabled={loading}
             />
@@ -126,11 +107,11 @@ export default function ResetPassword() {
         <div>
           <label className="block text-sm text-gray-600 mb-2">Confirm Password</label>
           <div className="relative">
-            <input 
+            <input
               type={showConfirmPassword ? 'text' : 'password'}
-              value={confirmPassword} 
-              onChange={e => setConfirmPassword(e.target.value)} 
-              placeholder="confirm new password" 
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              placeholder="confirm new password"
               className="w-full px-4 py-2 pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600"
               disabled={loading}
             />
@@ -148,9 +129,9 @@ export default function ResetPassword() {
 
         {error && <div className="text-red-500 text-sm bg-red-50 p-2 rounded">{error}</div>}
 
-        <button 
+        <button
           type="submit"
-          disabled={loading} 
+          disabled={loading}
           className="w-full bg-teal-600 text-white py-3 rounded-lg font-medium hover:bg-teal-700 disabled:bg-gray-400"
         >
           {loading ? 'Resetting...' : 'Reset Password'}

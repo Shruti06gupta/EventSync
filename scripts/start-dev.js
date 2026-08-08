@@ -13,9 +13,10 @@ function parsePids(output) {
 
 function getListeningPids(port) {
   try {
+    const args = isWindows ? ['-aon'] : ['-ano', '-p', 'tcp'];
     const output = execFileSync(
       'netstat',
-      ['-ano', '-p', 'tcp'],
+      args,
       { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
     );
 
@@ -29,6 +30,10 @@ function getListeningPids(port) {
     console.error(`Failed to inspect port ${port}: ${error.message}`);
     return [];
   }
+}
+
+function sleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
 function killPid(pid, port) {
@@ -51,6 +56,11 @@ function ensureManagedPortsAvailable() {
     const pids = getListeningPids(port);
     for (const pid of pids) {
       killPid(pid, port);
+    }
+
+    const deadline = Date.now() + 5000;
+    while (getListeningPids(port).length > 0 && Date.now() < deadline) {
+      sleep(250);
     }
   }
 }

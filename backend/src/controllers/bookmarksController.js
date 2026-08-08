@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const Event = require('../models/Event');
+const { safeCreateBookmarkNotification } = require('../services/notificationService');
 
 const getBookmarkIds = async (req, res) => {
   try {
@@ -60,6 +61,12 @@ const addBookmark = async (req, res) => {
 
     user.bookmarks.push(eventId);
     await user.save();
+
+    await safeCreateBookmarkNotification({
+      userId: req.user._id,
+      eventId: event._id,
+      eventTitle: event.title,
+    });
 
     return res.status(201).json({
       message: 'Event saved to bookmarks',

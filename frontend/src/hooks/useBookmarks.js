@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import api from '../api'
+import { useNotifications } from '../context/NotificationsContext'
 
 export default function useBookmarks() {
   const [bookmarkIds, setBookmarkIds] = useState([])
   const [loading, setLoading] = useState(true)
+  const notificationsContext = useNotifications()
 
   const loadBookmarkIds = useCallback(async () => {
     try {
@@ -36,6 +38,7 @@ export default function useBookmarks() {
       } else {
         const res = await api.post(`/user/bookmarks/${id}`)
         setBookmarkIds(res.data.bookmarkIds || [])
+        notificationsContext?.refreshNotifications?.()
       }
       return !saved
     } catch (err) {

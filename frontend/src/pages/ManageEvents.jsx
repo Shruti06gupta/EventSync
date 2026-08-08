@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useNotifications } from '../context/NotificationsContext'
 import api from '../api'
 
 const formatDateForInput = (dateStr) => {
@@ -11,6 +12,7 @@ const formatDateForInput = (dateStr) => {
 
 export default function ManageEvents() {
   const { user } = useAuth()
+  const { refreshNotifications } = useNotifications()
   const [events, setEvents] = useState([])
   const [loadingEvents, setLoadingEvents] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -155,7 +157,7 @@ export default function ManageEvents() {
     }
 
     if (deadline > start) {
-      setErrorMessage('Registration deadline must be before or equal to the start date.')
+      setErrorMessage('Registration deadline cannot be after the event start date.')
       return
     }
 
@@ -185,6 +187,7 @@ export default function ManageEvents() {
       } else {
         await api.post('/events', payload)
         setSuccessMessage('Event created successfully!')
+        refreshNotifications()
       }
 
       setFormData({
@@ -580,7 +583,7 @@ export default function ManageEvents() {
                       dateStyle: 'medium',
                     })}
                   </p>
-                  
+
                   <div className="mt-3 flex items-center justify-between gap-2 border-t border-gray-200/50 pt-2.5">
                     {event.eventLink ? (
                       <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-2.5 py-0.5 rounded-full">
