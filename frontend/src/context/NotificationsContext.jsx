@@ -97,11 +97,6 @@ export function NotificationsProvider({ children }) {
     }
   }, [loadNotifications, user])
 
-  const refreshNotifications = useCallback(
-    () => loadNotifications({ silent: true }),
-    [loadNotifications]
-  )
-
   const markNotificationAsRead = useCallback(async (id) => {
     let previousNotification = null
     let shouldDecrementUnread = false
@@ -159,10 +154,9 @@ export function NotificationsProvider({ children }) {
       liveToast,
       clearToast,
       loadNotifications,
-      refreshNotifications,
       markNotificationAsRead,
     }),
-    [notifications, unreadCount, loading, error, loadNotifications, markNotificationAsRead]
+    [notifications, unreadCount, loading, error, liveToast, clearToast, loadNotifications, markNotificationAsRead]
   )
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>
