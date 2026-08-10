@@ -43,6 +43,7 @@ const register = async (req, res) => {
         college: user.college,
         interests: user.interests,
         role: user.role,
+        profilePicture: user.profilePicture,
       },
     });
   } catch (error) {
@@ -83,6 +84,7 @@ const login = async (req, res) => {
         college: user.college,
         interests: user.interests,
         role: user.role,
+        profilePicture: user.profilePicture,
       },
     });
   } catch (error) {

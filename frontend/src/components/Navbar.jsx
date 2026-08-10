@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../context/NotificationsContext'
+import Toast from './Toast'
 
 const formatTimestamp = (value) => {
   const date = new Date(value)
@@ -20,12 +21,24 @@ const formatTimestamp = (value) => {
   }).format(date)
 }
 
+const getInitials = (name) => {
+  if (!name) return 'U'
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+}
+
 export default function Navbar() {
   const { user, logout } = useAuth()
-  const { notifications, unreadCount, loading, error, loadNotifications, markNotificationAsRead } = useNotifications()
+  const { notifications, unreadCount, loading, error, liveToast, clearToast, loadNotifications, markNotificationAsRead } = useNotifications()
   const [isOpen, setIsOpen] = useState(false)
+  const [visibleCount, setVisibleCount] = useState(6)
   const [actionError, setActionError] = useState('')
   const dropdownRef = useRef(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -51,12 +64,16 @@ export default function Navbar() {
     }
   }, [isOpen])
 
-  const recentNotifications = useMemo(() => notifications.slice(0, 6), [notifications])
+  const recentNotifications = useMemo(() => notifications.slice(0, visibleCount), [notifications, visibleCount])
 
   const handleToggleDropdown = async () => {
     const nextOpen = !isOpen
     setIsOpen(nextOpen)
     setActionError('')
+
+    if (!nextOpen) {
+      setVisibleCount(6)
+    }
 
     if (nextOpen) {
       try {
@@ -67,10 +84,16 @@ export default function Navbar() {
     }
   }
 
-  const handleMarkAsRead = async (id) => {
+  const handleMarkAsRead = async (notification) => {
     try {
       setActionError('')
-      await markNotificationAsRead(id)
+      if (!notification.read) {
+        await markNotificationAsRead(notification._id)
+      }
+      setIsOpen(false)
+      if (notification.event) {
+        navigate(`/events/${notification.event}`)
+      }
     } catch (err) {
       setActionError(err.response?.data?.message || 'Unable to update notification.')
     }
@@ -87,7 +110,16 @@ export default function Navbar() {
             {user.role === 'admin' && (
               <Link to="/manage" className="text-sm font-semibold text-gray-700 hover:text-teal-600 transition duration-150">Manage Events</Link>
             )}
-            <Link to="/profile" className="text-sm font-semibold text-gray-700 hover:text-teal-600 transition duration-150">Profile</Link>
+            <Link to="/profile" className="text-sm font-semibold text-gray-700 hover:text-teal-600 transition duration-150 flex items-center gap-2">
+              {user.profilePicture ? (
+                <img src={user.profilePicture} alt={user.name} className="h-6 w-6 rounded-full object-cover border border-gray-200" />
+              ) : (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-100 text-[10px] font-bold text-teal-700">
+                  {getInitials(user.name)}
+                </span>
+              )}
+              Profile
+            </Link>
 
             <div className="relative" ref={dropdownRef}>
               <button
@@ -100,7 +132,7 @@ export default function Navbar() {
                 <span className="text-lg" aria-hidden="true">🔔</span>
                 {unreadCount > 0 ? (
                   <span className="absolute -right-1 -top-1 min-w-[1.25rem] rounded-full bg-rose-500 px-1.5 py-0.5 text-center text-[10px] font-bold text-white">
-                    {unreadCount > 9 ? '9+' : unreadCount}
+                    {unreadCount}
                   </span>
                 ) : null}
               </button>
@@ -109,11 +141,20 @@ export default function Navbar() {
                 <div className="absolute right-0 z-30 mt-3 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl">
                   <div className="border-b border-gray-100 bg-gradient-to-r from-teal-600 to-cyan-500 px-5 py-4 text-white">
                     <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-teal-100">Notifications</p>
-                        <h3 className="mt-1 text-lg font-bold">Recent updates</h3>
+                      <div className="flex items-center gap-3">
+                        {user.profilePicture ? (
+                          <img src={user.profilePicture} alt={user.name} className="h-10 w-10 rounded-xl object-cover border border-white/20" />
+                        ) : (
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-sm font-bold text-teal-100">
+                            {getInitials(user.name)}
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-teal-100">Notifications</p>
+                          <h3 className="mt-1 text-lg font-bold">Recent updates</h3>
+                        </div>
                       </div>
-                      <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
+                      <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold shrink-0">
                         {unreadCount} unread
                       </span>
                     </div>
@@ -142,37 +183,47 @@ export default function Navbar() {
                     ) : (
                       <div className="space-y-2">
                         {recentNotifications.map((notification) => (
+                           <button
+                             key={notification._id}
+                             type="button"
+                             onClick={() => handleMarkAsRead(notification)}
+                             className={`w-full rounded-2xl border px-4 py-3 text-left transition hover:border-teal-200 hover:bg-teal-50 ${
+                               notification.read
+                                 ? 'border-gray-100 bg-white'
+                                 : 'border-teal-100 bg-teal-50/70'
+                             }`}
+                           >
+                             <div className="flex items-start justify-between gap-3">
+                               <p className="text-sm font-semibold text-gray-800">{notification.message}</p>
+                               <span
+                                 className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
+                                   notification.read ? 'bg-gray-300' : 'bg-teal-500'
+                                 }`}
+                                 aria-hidden="true"
+                               />
+                             </div>
+                             <div className="mt-2 flex items-center justify-between gap-3">
+                               <span className="text-xs text-gray-500">{formatTimestamp(notification.createdAt)}</span>
+                               <span
+                                 className={`text-xs font-semibold ${
+                                   notification.read ? 'text-gray-400' : 'text-teal-600'
+                                 }`}
+                               >
+                                 {notification.read ? 'Read' : 'Mark as read'}
+                               </span>
+                             </div>
+                           </button>
+                         ))}
+
+                        {notifications.length > visibleCount && (
                           <button
-                            key={notification._id}
                             type="button"
-                            onClick={() => handleMarkAsRead(notification._id)}
-                            className={`w-full rounded-2xl border px-4 py-3 text-left transition hover:border-teal-200 hover:bg-teal-50 ${
-                              notification.read
-                                ? 'border-gray-100 bg-white'
-                                : 'border-teal-100 bg-teal-50/70'
-                            }`}
+                            onClick={() => setVisibleCount((prev) => prev + 10)}
+                            className="w-full mt-3 py-2 text-center text-xs font-bold text-teal-600 hover:text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-xl transition duration-150"
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <p className="text-sm font-semibold text-gray-800">{notification.message}</p>
-                              <span
-                                className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
-                                  notification.read ? 'bg-gray-300' : 'bg-teal-500'
-                                }`}
-                                aria-hidden="true"
-                              />
-                            </div>
-                            <div className="mt-2 flex items-center justify-between gap-3">
-                              <span className="text-xs text-gray-500">{formatTimestamp(notification.createdAt)}</span>
-                              <span
-                                className={`text-xs font-semibold ${
-                                  notification.read ? 'text-gray-400' : 'text-teal-600'
-                                }`}
-                              >
-                                {notification.read ? 'Read' : 'Mark as read'}
-                              </span>
-                            </div>
+                            Load More
                           </button>
-                        ))}
+                        )}
                       </div>
                     )}
 
@@ -205,6 +256,11 @@ export default function Navbar() {
           </div>
         )}
       </div>
+      <Toast
+        notification={liveToast}
+        onClose={clearToast}
+        onClick={handleMarkAsRead}
+      />
     </nav>
   )
 }
