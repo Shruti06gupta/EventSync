@@ -11,6 +11,7 @@ export default function Profile() {
     newEvents: true,
     weeklyDigest: true
   })
+  const [availableTags, setAvailableTags] = useState([])
   const [newInterest, setNewInterest] = useState('')
   const [preview, setPreview] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -37,6 +38,17 @@ export default function Profile() {
           console.error('Failed to fetch notification preferences', err)
         }
       }
+      const fetchTags = async () => {
+        try {
+          const res = await api.get('/events/tags')
+          if (res.data.tags) {
+            setAvailableTags(res.data.tags)
+          }
+        } catch (err) {
+          console.error('Failed to fetch tags', err)
+        }
+      }
+      fetchTags()
       fetchPrefs()
     }
   }, [user])
@@ -241,6 +253,29 @@ export default function Profile() {
                   ))
                 )}
               </div>
+
+              {/* Suggested Tags */}
+              {availableTags.length > 0 && (
+                <div className="mb-4 mt-4">
+                  <p className="text-xs text-gray-500 mb-2 font-semibold">Suggested Interests:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {availableTags.filter(tag => !form.interests.includes(tag)).map(tag => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => {
+                          if (!form.interests.includes(tag)) {
+                            setForm(prev => ({ ...prev, interests: [...prev.interests, tag] }))
+                          }
+                        }}
+                        className="px-3 py-1 text-xs font-semibold rounded-full border bg-white border-gray-200 text-gray-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition"
+                      >
+                        + {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Add Tag Input */}
               <div className="flex gap-2">

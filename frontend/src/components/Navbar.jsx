@@ -106,7 +106,9 @@ export default function Navbar() {
         {user ? (
           <div className="flex flex-1 flex-wrap items-center justify-end gap-3 sm:gap-6">
             <Link to="/events" className="text-sm font-semibold text-gray-700 hover:text-teal-600 transition duration-150">Events</Link>
-            <Link to="/bookmarks" className="text-sm font-semibold text-gray-700 hover:text-teal-600 transition duration-150">Bookmarks</Link>
+            {user.role !== 'admin' && (
+              <Link to="/bookmarks" className="text-sm font-semibold text-gray-700 hover:text-teal-600 transition duration-150">Bookmarks</Link>
+            )}
             {user.role === 'admin' && (
               <Link to="/manage" className="text-sm font-semibold text-gray-700 hover:text-teal-600 transition duration-150">Manage Events</Link>
             )}

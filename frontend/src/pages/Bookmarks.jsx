@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import api from '../api'
 import BookmarkButton from '../components/BookmarkButton'
 import useBookmarks from '../hooks/useBookmarks'
@@ -16,6 +17,11 @@ export default function Bookmarks() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const { isBookmarked, toggleBookmark, refreshBookmarks } = useBookmarks()
+  const { user } = useAuth()
+
+  if (user?.role === 'admin') {
+    return <Navigate to="/events" replace />
+  }
 
   const loadBookmarks = async () => {
     try {

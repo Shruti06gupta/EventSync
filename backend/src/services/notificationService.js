@@ -39,8 +39,11 @@ const safeCreateNotifications = async (operation, context = {}) => {
   }
 };
 
-const createEventNotifications = async ({ actorUserId, eventId, eventTitle, eventCategory, eventTags }) => {
-  const recipients = await User.find({ _id: { $ne: actorUserId } }).select('_id interests').lean();
+const createEventNotifications = async ({ actorUserId, eventId, eventTitle, eventCategory, eventTags, eventCollege, isPublic }) => {
+  const recipients = await User.find({ 
+    _id: { $ne: actorUserId },
+    'notificationPreferences.newEvents': { $ne: false }
+  }).select('_id interests').lean();
 
   if (recipients.length === 0) {
     return { insertedCount: 0 };
@@ -59,6 +62,8 @@ const createEventNotifications = async ({ actorUserId, eventId, eventTitle, even
   if (matchingRecipients.length === 0) {
     return { insertedCount: 0 };
   }
+
+  const message = buildNewEventNotificationMessage(eventTitle, eventCategory, eventCollege, isPublic);
 
   const notifications = matchingRecipients.map((user) => ({
     user: user._id,
@@ -105,6 +110,46 @@ const safeCreateBookmarkNotification = (payload) =>
     }
   );
 
+const createDeadlineReminders = async ({ eventId, eventTitle, eventCategory, eventTags }) => {
+  const recipients = await User.find({
+    'notificationPreferences.deadlineReminders': { $ne: false },
+  }).select('_id interests bookmarks').lean();
+
+  if (recipients.length === 0) return { insertedCount: 0 };
+
+  const eventInterests = [eventCategory, ...(eventTags || [])].filter(Boolean).map(v => v.trim().toLowerCase());
+
+  const matchingRecipients = recipients.filter(user => {
+    const isBookmarked = user.bookmarks && user.bookmarks.some(b => b.toString() === eventId.toString());
+    if (isBookmarked) return true;
+
+    if (eventInterests.length === 0) return false;
+    const userInterests = (user.interests || []).map(v => v.trim().toLowerCase());
+    return userInterests.some(interest => eventInterests.includes(interest));
+  });
+
+  if (matchingRecipients.length === 0) return { insertedCount: 0 };
+
+  const notifications = matchingRecipients.map(user => ({
+    user: user._id,
+    type: 'deadline_reminder',
+    event: eventId,
+    message: `Reminder: Registration for ${eventTitle} is closing soon!`,
+  }));
+
+  const inserted = await Notification.insertMany(notifications);
+  return { insertedCount: inserted.length };
+};
+
+const safeCreateDeadlineReminders = (payload) =>
+  safeCreateNotifications(
+    () => createDeadlineReminders(payload),
+    {
+      type: 'deadline_reminder',
+      eventId: payload.eventId,
+    }
+  );
+
 const getUnreadNotificationCount = (userId) =>
   Notification.countDocuments({
     user: userId,
@@ -121,5 +166,7 @@ module.exports = {
   safeCreateEventNotifications,
   createBookmarkNotification,
   safeCreateBookmarkNotification,
+  createDeadlineReminders,
+  safeCreateDeadlineReminders,
   getUnreadNotificationCount,
 };

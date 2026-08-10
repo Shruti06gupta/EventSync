@@ -57,21 +57,21 @@ const fetchUnstopEvents = async () => {
         // Limit description length if very long to prevent database bloat
         descriptionText = descriptionText.length > 800 ? descriptionText.substring(0, 797) + '...' : descriptionText;
 
-        const endDate = item.end_date ? new Date(item.end_date) : new Date(Date.now() + 12 * 24 * 60 * 60 * 1000);
-        
-        let startDate = item.updated_at ? new Date(item.updated_at) : new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
-        if (item.regnRequirements && item.regnRequirements.start_regn_dt) {
-            startDate = new Date(item.regnRequirements.start_regn_dt);
-        }
-
         let regnDeadline = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000);
         if (item.regnRequirements && item.regnRequirements.end_regn_dt) {
           regnDeadline = new Date(item.regnRequirements.end_regn_dt);
         }
 
-        // Validate date order for schema
+        let startDate = item.start_date ? new Date(item.start_date) : new Date(regnDeadline.getTime() + 24 * 60 * 60 * 1000);
+
+        let endDate = item.end_date ? new Date(item.end_date) : new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+
+        // Validate date order for schema (regnDeadline <= startDate <= endDate)
+        if (startDate < regnDeadline) {
+          startDate = new Date(regnDeadline.getTime());
+        }
         if (endDate < startDate) {
-          startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
+          endDate = new Date(startDate.getTime());
         }
 
         const venue = item.region || 'Online';

@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import api from '../api'
 
 export default function Register() {
   const [name, setName] = useState('')
@@ -10,11 +11,44 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [college, setCollege] = useState('')
-  const [interests, setInterests] = useState('')
+  const [availableTags, setAvailableTags] = useState([])
+  const [interests, setInterests] = useState([])
+  const [customInterest, setCustomInterest] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const { register, login } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const fetchTags = async () => {
+      try {
+        const res = await api.get('/events/tags')
+        if (res.data.tags) {
+          setAvailableTags(res.data.tags)
+        }
+      } catch (err) {
+        console.error('Failed to fetch tags', err)
+      }
+    }
+    fetchTags()
+  }, [])
+
+  const handleToggleInterest = (tag) => {
+    if (interests.includes(tag)) {
+      setInterests(interests.filter(i => i !== tag))
+    } else {
+      setInterests([...interests, tag])
+    }
+  }
+
+  const handleAddCustomInterest = (e) => {
+    e.preventDefault()
+    const trimmed = customInterest.trim().toLowerCase()
+    if (trimmed && !interests.includes(trimmed)) {
+      setInterests([...interests, trimmed])
+      setCustomInterest('')
+    }
+  }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -50,7 +84,7 @@ export default function Register() {
         password, 
         confirmPassword, 
         college,
-        interests: interests ? interests.split(',').map(i => i.trim()) : []
+        interests
       })
       await login(email, password)
       navigate('/profile')
@@ -145,15 +179,58 @@ export default function Register() {
         </div>
 
         <div>
-          <label className="block text-sm text-gray-600 mb-1">Interests (optional)</label>
-          <input 
-            value={interests} 
-            onChange={e => setInterests(e.target.value)} 
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600" 
-            placeholder="e.g., coding, design, marketing (comma separated)"
-            disabled={loading}
-          />
-          <p className="text-xs text-gray-500 mt-1">Separate multiple interests with commas</p>
+          <label className="block text-sm text-gray-600 mb-2">Interests (optional)</label>
+          {availableTags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {availableTags.map(tag => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => handleToggleInterest(tag)}
+                  className={`px-3 py-1 text-xs font-semibold rounded-full border transition ${
+                    interests.includes(tag) 
+                      ? 'bg-teal-100 border-teal-300 text-teal-800' 
+                      : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input 
+              value={customInterest} 
+              onChange={e => setCustomInterest(e.target.value)} 
+              className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600 text-sm" 
+              placeholder="Add custom interest..."
+              disabled={loading}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleAddCustomInterest(e)
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleAddCustomInterest}
+              className="px-4 py-2 bg-gray-100 border rounded-lg text-sm font-semibold hover:bg-gray-200"
+            >
+              Add
+            </button>
+          </div>
+          {interests.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              <span className="text-xs text-gray-500 mr-1 self-center">Selected:</span>
+              {interests.map(i => (
+                <span key={i} className="text-xs font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded flex items-center gap-1">
+                  {i}
+                  <button type="button" onClick={() => handleToggleInterest(i)} className="text-teal-500 hover:text-teal-900">&times;</button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {error && <div className="text-red-500 text-sm bg-red-50 p-2 rounded">{error}</div>}
