@@ -4,7 +4,7 @@ const { fetchDevfolioEvents } = require('../providers/devfolio.provider');
 const { fetchUnstopEvents } = require('../providers/unstop.provider');
 const { deduplicateEvents } = require('./deduplication.service');
 const { categorizeEvent } = require('./categorization.service');
-const { createEventNotifications } = require('../../services/notificationService');
+const { safeCreateEventNotifications } = require('../../services/notificationService');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { getEventImage } = require('../../utils/imageHelper');
 
@@ -75,11 +75,12 @@ const runAggregation = async (actorUserId = null) => {
       insertedEvents.push(newEvent);
 
       // Trigger notifications using existing system
-      await createEventNotifications({
+      await safeCreateEventNotifications({
         actorUserId: actorUserId || 'system',
         eventId: newEvent._id,
         eventTitle: newEvent.title,
         eventCategory: newEvent.category,
+        eventTags: newEvent.tags,
         eventCollege: newEvent.college,
         isPublic: newEvent.isPublic,
       });
