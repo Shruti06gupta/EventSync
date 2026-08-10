@@ -317,9 +317,38 @@ const updateEvent = async (req, res) => {
   }
 };
 
+const getEventTags = async (req, res) => {
+  try {
+    const categories = await Event.distinct('category', { isVerified: true });
+    const tagsArrays = await Event.distinct('tags', { isVerified: true });
+    
+    const tagSet = new Set();
+    categories.forEach(c => {
+      if (c && c.trim()) tagSet.add(c.trim());
+    });
+    
+    tagsArrays.forEach(tag => {
+      if (tag && tag.trim()) tagSet.add(tag.trim());
+    });
+
+    const tags = Array.from(tagSet).sort();
+
+    return res.status(200).json({
+      message: 'Tags fetched successfully',
+      tags,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Failed to fetch tags',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getEvents,
   getEventById,
   createEvent,
   updateEvent,
+  getEventTags,
 };
