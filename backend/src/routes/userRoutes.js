@@ -1,7 +1,7 @@
 const express = require('express');
 const authMiddleware = require('../middlewares/authMiddleware');
 const roleMiddleware = require('../middlewares/roleMiddleware');
-const { getProfile, updateProfile } = require('../controllers/userController');
+const { getProfile, updateProfile, getNotificationPreferences, updateNotificationPreferences } = require('../controllers/userController');
 const {
   getBookmarkIds,
   getBookmarks,
@@ -13,6 +13,9 @@ const router = express.Router();
 
 router.get('/profile', authMiddleware, getProfile);
 router.patch('/profile', authMiddleware, updateProfile);
+
+router.get('/notification-preferences', authMiddleware, getNotificationPreferences);
+router.patch('/notification-preferences', authMiddleware, updateNotificationPreferences);
 
 router.get('/bookmarks/ids', authMiddleware, getBookmarkIds);
 router.get('/bookmarks', authMiddleware, getBookmarks);

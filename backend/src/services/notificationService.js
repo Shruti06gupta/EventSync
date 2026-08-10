@@ -14,7 +14,12 @@ const normalizeNotificationLimit = (value) => {
   return Math.min(parsed, MAX_NOTIFICATION_LIMIT);
 };
 
-const buildNewEventNotificationMessage = (eventTitle) => `New event available: ${eventTitle}`;
+const buildNewEventNotificationMessage = (eventTitle, category, college, isPublic) => {
+  if (isPublic) {
+    return `New Event: ${eventTitle}`;
+  }
+  return `New Event available for ${college} students: ${eventTitle}`;
+};
 
 const buildBookmarkNotificationMessage = (eventTitle) => `You bookmarked: ${eventTitle}`;
 
@@ -57,9 +62,9 @@ const createEventNotifications = async ({ actorUserId, eventId, eventTitle, even
 
   const notifications = matchingRecipients.map((user) => ({
     user: user._id,
-    type: 'event_created',
+    type: 'new_event',
     event: eventId,
-    message: buildNewEventNotificationMessage(eventTitle),
+    message,
   }));
 
   const inserted = await Notification.insertMany(notifications);

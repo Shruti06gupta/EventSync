@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import api from '../api'
 import BookmarkButton from '../components/BookmarkButton'
 import useBookmarks from '../hooks/useBookmarks'
+import { getEventImage } from '../utils/imageHelper'
 
 const formatDate = (value) =>
   new Intl.DateTimeFormat('en-IN', {
@@ -12,6 +13,7 @@ const formatDate = (value) =>
 
 export default function EventDetails() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [event, setEvent] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -49,11 +51,63 @@ export default function EventDetails() {
     )
   }
 
+  const renderDeadlineBanner = () => {
+    if (!event || !event.registrationDeadline) return null;
+    const now = new Date();
+    const deadline = new Date(event.registrationDeadline);
+    const timeToDeadline = deadline.getTime() - now.getTime();
+    
+    if (timeToDeadline < 0) return null;
+    if (timeToDeadline <= 3 * 60 * 60 * 1000) {
+      return (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r-2xl">
+          <div className="flex">
+            <div className="flex-shrink-0"><span className="text-xl">🚨</span></div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700 font-bold">Last 3 hours remaining!</p>
+              <p className="text-xs text-red-600 mt-1">Hurry up, registration is closing very soon.</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    if (timeToDeadline <= 24 * 60 * 60 * 1000) {
+      return (
+        <div className="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6 rounded-r-2xl">
+          <div className="flex">
+            <div className="flex-shrink-0"><span className="text-xl">⚠</span></div>
+            <div className="ml-3">
+              <p className="text-sm text-orange-700 font-bold">Registration closes tomorrow!</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    if (timeToDeadline <= 48 * 60 * 60 * 1000) {
+      return (
+        <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-6 rounded-r-2xl">
+          <div className="flex">
+            <div className="flex-shrink-0"><span className="text-xl">⏰</span></div>
+            <div className="ml-3">
+              <p className="text-sm text-amber-700 font-bold">Registration closes in 48 hours.</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-xl">
-      {event.image ? <img src={event.image} alt={event.title} className="h-72 w-full object-cover" /> : null}
+      <img
+        src={getEventImage(event.image, event.title, event.organizer, event.category, event.source)}
+        alt={event.title}
+        className="h-72 w-full object-cover shrink-0"
+      />
 
       <div className="p-8">
+        {renderDeadlineBanner()}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-sm uppercase tracking-[0.25em] text-teal-600">Event details</p>
@@ -65,9 +119,12 @@ export default function EventDetails() {
               isBookmarked={isBookmarked(event._id)}
               onToggle={toggleBookmark}
             />
-            <Link to="/events" className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700">
-              Back to events
-            </Link>
+            <button
+              onClick={() => navigate(-1)}
+              className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold bg-gray-50 text-gray-700 hover:bg-gray-100 transition"
+            >
+              Back
+            </button>
           </div>
         </div>
 
@@ -127,6 +184,12 @@ export default function EventDetails() {
               </a>
             );
           })()}
+          <button
+            onClick={() => navigate(-1)}
+            className="rounded-xl border border-gray-300 bg-white px-6 py-3 text-sm font-bold text-gray-750 hover:bg-gray-50 hover:border-gray-400 transition duration-150"
+          >
+            Back
+          </button>
           <Link to="/events" className="rounded-xl border border-gray-300 px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition duration-150">
             Explore more events
           </Link>
