@@ -11,29 +11,27 @@ const seedDeadlineEvents = async () => {
 
   const now = new Date();
 
-  const getFutureDate = (hours) => {
-    return new Date(now.getTime() + hours * 60 * 60 * 1000);
-  };
+  const getFutureDate = (hours) => new Date(now.getTime() + hours * 60 * 60 * 1000);
 
   const mockEvents = [
     {
-      title: 'Mock Deadline - 48 Hours',
-      description: 'This event will close in exactly 47 hours, triggering the 48h reminder.',
+      title: 'Mock Deadline - Weekly',
+      description: 'This event will close in about 7 days, triggering the weekly reminder.',
       organizer: 'Tech Club',
       college: 'Delhi Technological University',
       category: 'Hackathon',
       tags: ['hackathon', 'coding'],
       source: 'manual',
-      startDate: getFutureDate(50),
-      endDate: getFutureDate(74),
-      registrationDeadline: getFutureDate(47), // within 48h
+      startDate: getFutureDate(7 * 24 + 4),
+      endDate: getFutureDate(7 * 24 + 8),
+      registrationDeadline: getFutureDate(7 * 24),
       mode: 'Online',
       isPublic: true,
-      isVerified: true
+      isVerified: true,
     },
     {
       title: 'Mock Deadline - 24 Hours',
-      description: 'This event will close in exactly 23 hours, triggering the 24h reminder.',
+      description: 'This event will close in about 24 hours, triggering the 24h reminder.',
       organizer: 'Design Society',
       college: 'Delhi Technological University',
       category: 'Workshop',
@@ -41,36 +39,50 @@ const seedDeadlineEvents = async () => {
       source: 'manual',
       startDate: getFutureDate(30),
       endDate: getFutureDate(34),
-      registrationDeadline: getFutureDate(23), // within 24h
+      registrationDeadline: getFutureDate(24),
       mode: 'Online',
       isPublic: true,
-      isVerified: true
+      isVerified: true,
     },
     {
-      title: 'Mock Deadline - 3 Hours',
-      description: 'This event will close in exactly 2 hours, triggering the 3h reminder.',
+      title: 'Mock Deadline - 6 Hours',
+      description: 'This event will close in about 6 hours, triggering the 6h reminder.',
       organizer: 'Open Source Club',
       college: 'Delhi Technological University',
       category: 'Webinar',
       tags: ['opensource', 'git'],
       source: 'manual',
-      startDate: getFutureDate(5),
-      endDate: getFutureDate(7),
-      registrationDeadline: getFutureDate(2), // within 3h
+      startDate: getFutureDate(8),
+      endDate: getFutureDate(10),
+      registrationDeadline: getFutureDate(6),
       mode: 'Online',
       isPublic: true,
-      isVerified: true
-    }
+      isVerified: true,
+    },
+    {
+      title: 'Mock Deadline - 48 Hours (No Reminder)',
+      description: 'This event is 48 hours away and should NOT trigger any reminder.',
+      organizer: 'QA Club',
+      college: 'Delhi Technological University',
+      category: 'Meetup',
+      tags: ['qa'],
+      source: 'manual',
+      startDate: getFutureDate(52),
+      endDate: getFutureDate(56),
+      registrationDeadline: getFutureDate(48),
+      mode: 'Online',
+      isPublic: true,
+      isVerified: true,
+    },
   ];
 
   try {
     const inserted = await Event.insertMany(mockEvents);
     console.log(`Successfully inserted ${inserted.length} mock events.`);
     console.log('\n--- TESTING INSTRUCTIONS ---');
-    console.log('1. Ensure you have users in your database (or register a new user).');
-    console.log('2. Ensure your user has "Deadline Reminders" and "Email Notifications" enabled in their Profile.');
-    console.log('3. Run the cron manually by executing a test script or modifying server.js to call processDeadlineReminders() immediately on startup.');
-    console.log('4. Check the terminal for email/notification logs.');
+    console.log('1. Ensure you have users with matching interests/college/bookmarks.');
+    console.log('2. Ensure "Deadline Reminders" and "Email Notifications" are enabled in Profile.');
+    console.log('3. Run: npm run verify:deadline-reminders');
     console.log('----------------------------\n');
   } catch (error) {
     console.error('Error seeding deadline events:', error);

@@ -1,38 +1,50 @@
 const generateDeadlineEmail = (event, stage, user) => {
+  const safeTitle = event?.title || 'Event';
+  const safeOrganizer = event?.organizer || 'Organizer not listed';
+  const safeName = user?.name || 'there';
+  const deadlineText = event?.registrationDeadline
+    ? new Date(event.registrationDeadline).toLocaleString()
+    : 'Not available';
+
   const stageDetails = {
-    '48h': {
-      subject: `⏰ Reminder: ${event.title} closes in 48 hours`,
-      heading: 'Registration closes in 48 hours!',
-      description: `Don't miss out on ${event.title}. Registration is closing soon.`
+    weekly: {
+      subject: `Reminder: ${safeTitle} registration closes in 1 week`,
+      heading: 'Registration closes in 1 week',
+      description: `Don't miss out on ${safeTitle}. Registration closes in about one week.`,
     },
     '24h': {
-      subject: `⚠ Registration closes tomorrow: ${event.title}`,
-      heading: 'Registration closes tomorrow!',
-      description: `Time is running out to register for ${event.title}.`
+      subject: `Reminder: ${safeTitle} registration closes in 24 hours`,
+      heading: 'Registration closes in 24 hours',
+      description: `Time is running out to register for ${safeTitle}.`,
     },
-    '3h': {
-      subject: `🚨 Last chance to register for ${event.title}`,
-      heading: 'Last chance to register!',
-      description: `Registration for ${event.title} closes in just 3 hours.`
-    }
+    '6h': {
+      subject: `Reminder: ${safeTitle} registration closes in 6 hours`,
+      heading: 'Registration closes in 6 hours',
+      description: `Registration for ${safeTitle} closes in about 6 hours.`,
+    },
   };
 
   const details = stageDetails[stage];
-  const eventLink = process.env.CLIENT_URL ? `${process.env.CLIENT_URL}/events/${event._id}` : `http://localhost:5173/events/${event._id}`;
+  if (!details) {
+    throw new Error(`Unsupported reminder stage: ${stage}`);
+  }
+  const eventLink = process.env.CLIENT_URL
+    ? `${process.env.CLIENT_URL}/events/${event._id}`
+    : `http://localhost:5173/events/${event._id}`;
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
       <h2 style="color: #2563eb; text-align: center;">EventSync</h2>
       <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin-top: 20px;">
         <h3 style="color: #1f2937; margin-top: 0;">${details.heading}</h3>
-        <p style="font-size: 16px;">Hi ${user.name},</p>
+        <p style="font-size: 16px;">Hi ${safeName},</p>
         <p style="font-size: 16px;">${details.description}</p>
         
         <div style="background-color: #ffffff; padding: 15px; border-radius: 6px; margin: 20px 0;">
-          <h4 style="margin: 0 0 10px 0; color: #111827;">${event.title}</h4>
-          <p style="margin: 5px 0; font-size: 14px;"><strong>Organizer:</strong> ${event.organizer}</p>
-          <p style="margin: 5px 0; font-size: 14px;"><strong>Deadline:</strong> ${new Date(event.registrationDeadline).toLocaleString()}</p>
-          ${event.venue ? `<p style="margin: 5px 0; font-size: 14px;"><strong>Venue:</strong> ${event.venue} (${event.mode})</p>` : ''}
+          <h4 style="margin: 0 0 10px 0; color: #111827;">${safeTitle}</h4>
+          <p style="margin: 5px 0; font-size: 14px;"><strong>Organizer:</strong> ${safeOrganizer}</p>
+          <p style="margin: 5px 0; font-size: 14px;"><strong>Deadline:</strong> ${deadlineText}</p>
+          ${event?.venue ? `<p style="margin: 5px 0; font-size: 14px;"><strong>Venue:</strong> ${event.venue} (${event.mode || 'TBD'})</p>` : ''}
         </div>
         
         <div style="text-align: center; margin-top: 30px;">
@@ -48,10 +60,10 @@ const generateDeadlineEmail = (event, stage, user) => {
 
   return {
     subject: details.subject,
-    html
+    html,
   };
 };
 
 module.exports = {
-  generateDeadlineEmail
+  generateDeadlineEmail,
 };

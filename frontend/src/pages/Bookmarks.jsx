@@ -66,7 +66,7 @@ export default function Bookmarks() {
   }
 
   return (
-    <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+    <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8 rounded-3xl bg-gradient-to-r from-amber-500 to-orange-500 p-8 text-white shadow-xl">
         <p className="text-sm uppercase tracking-[0.3em] text-amber-100">Your collection</p>
         <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Saved events</h1>

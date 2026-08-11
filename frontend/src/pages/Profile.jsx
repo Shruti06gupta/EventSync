@@ -319,7 +319,7 @@ export default function Profile() {
             <div className="space-y-4">
               {[
                 { key: 'email', label: 'Email Notifications', desc: 'Receive updates directly to your inbox.' },
-                { key: 'deadlineReminders', label: 'Deadline Reminders', desc: 'Get notified when an event registration is closing soon (48h, 24h, 3h).' },
+                { key: 'deadlineReminders', label: 'Deadline Reminders', desc: 'Get notified when an event registration is closing soon (1 week, 24h, 6h).' },
                 { key: 'newEvents', label: 'New Event Alerts', desc: 'Get notified when a new event matches your interests or college.' },
               ].map((pref) => (
                 <div key={pref.key} className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 bg-gray-50/50">

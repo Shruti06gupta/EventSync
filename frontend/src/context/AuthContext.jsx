@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   useEffect(() => {
-    setLoading(false)
+    fetchProfile()
   }, [])
 
   const login = async (email, password) => {

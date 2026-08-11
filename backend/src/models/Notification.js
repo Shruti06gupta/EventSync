@@ -20,7 +20,7 @@ const notificationSchema = new mongoose.Schema(
     },
     reminderStage: {
       type: String,
-      enum: ['48h', '24h', '3h', null],
+      enum: ['weekly', '24h', '6h', null],
       default: null,
     },
     event: {
