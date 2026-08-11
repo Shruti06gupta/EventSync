@@ -9,7 +9,8 @@
     "dev": "nodemon src/server.js",
     "seed:events": "node src/seeders/seedEvents.js",
     "seed:notifications": "node src/seeders/seedNotifications.js",
-    "verify:notifications": "node src/scripts/verifyNotificationsFlow.js"
+    "verify:notifications": "node src/scripts/verifyNotificationsFlow.js",
+    "verify:admin-registration": "node src/scripts/verifyAdminRegistration.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
