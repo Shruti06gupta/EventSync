@@ -110,7 +110,10 @@ export default function Navbar() {
               <Link to="/bookmarks" className="text-sm font-semibold text-gray-700 hover:text-teal-600 transition duration-150">Bookmarks</Link>
             )}
             {user.role === 'admin' && (
-              <Link to="/manage" className="text-sm font-semibold text-gray-700 hover:text-teal-600 transition duration-150">Manage Events</Link>
+              <>
+                <Link to="/admin" className="text-sm font-semibold text-gray-700 hover:text-teal-600 transition duration-150">Dashboard</Link>
+                <Link to="/manage" className="text-sm font-semibold text-gray-700 hover:text-teal-600 transition duration-150">Manage Events</Link>
+              </>
             )}
             <Link to="/profile" className="text-sm font-semibold text-gray-700 hover:text-teal-600 transition duration-150 flex items-center gap-2">
               {user.profilePicture ? (

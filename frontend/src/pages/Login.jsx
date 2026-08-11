@@ -18,8 +18,9 @@ export default function Login() {
     setLoading(true)
     setError(null)
     try {
-      await login(email, password)
-      navigate(from, { replace: true })
+      const data = await login(email, password)
+      const destination = data.user?.role === 'admin' && from === '/profile' ? '/admin' : from
+      navigate(destination, { replace: true })
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed')
     } finally { setLoading(false) }

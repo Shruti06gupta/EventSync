@@ -11,6 +11,7 @@ export default defineConfig({
       '/notifications': 'http://localhost:5000',
       '/user': 'http://localhost:5000',
       '/aggregation': 'http://localhost:5000',
+      '/admin': 'http://localhost:5000',
       '/health': 'http://localhost:5000',
     },
   },

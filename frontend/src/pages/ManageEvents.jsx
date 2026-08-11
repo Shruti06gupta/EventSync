@@ -218,7 +218,7 @@ export default function ManageEvents() {
   const linkType = getLinkType(formData.eventLink)
 
   return (
-    <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+    <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
       {/* Header Banner */}
       <div className="mb-8 rounded-3xl bg-gradient-to-r from-teal-700 to-emerald-600 p-8 text-white shadow-xl">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

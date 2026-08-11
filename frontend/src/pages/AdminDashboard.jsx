@@ -1,0 +1,340 @@
+import React, { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import api from '../api'
+import {
+  StatCard,
+  SectionCard,
+  SimpleBarChart,
+  HorizontalBars,
+  DashboardSkeleton,
+  formatNumber,
+} from '../components/admin/DashboardWidgets'
+
+const formatActivityTime = (value) =>
+  new Intl.DateTimeFormat('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(new Date(value))
+
+const formatDeadline = (value) =>
+  new Intl.DateTimeFormat('en-IN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value))
+
+const healthStyles = {
+  operational: 'bg-emerald-100 text-emerald-700',
+  degraded: 'bg-amber-100 text-amber-700',
+  unknown: 'bg-gray-100 text-gray-600',
+}
+
+const alertStyles = {
+  info: 'border-blue-100 bg-blue-50 text-blue-800',
+  warning: 'border-amber-100 bg-amber-50 text-amber-800',
+  error: 'border-rose-100 bg-rose-50 text-rose-800',
+}
+
+export default function AdminDashboard() {
+  const [stats, setStats] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        setError('')
+        setLoading(true)
+        const res = await api.get('/admin/dashboard/stats')
+        setStats(res.data)
+      } catch (err) {
+        if (err.response?.status === 403) {
+          setError('Access denied. Admin privileges are required.')
+        } else if (err.response?.status === 404) {
+          setError('Admin dashboard API not found. Restart the backend server to load the latest routes.')
+        } else {
+          setError(err.response?.data?.message || 'Unable to load admin dashboard data.')
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadStats()
+  }, [])
+
+  if (loading) {
+    return <DashboardSkeleton />
+  }
+
+  if (error || !stats) {
+    return (
+      <div className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
+        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-8 text-center">
+          <h1 className="text-xl font-bold text-rose-800">Dashboard unavailable</h1>
+          <p className="mt-3 text-sm text-rose-700">
+            {error || 'Unable to load dashboard data. Make sure the backend is running and restart the frontend dev server.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-6 rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-rose-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const {
+    kpis = {},
+    eventOverview = {},
+    eventsByPlatform = [],
+    userGrowth = {},
+    engagement = {},
+    eventCreationTrend = [],
+    recentActivity = [],
+    closingEvents = [],
+    adminAlerts = [],
+    systemHealth = {},
+  } = stats
+
+  return (
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
+      <div className="mb-8 rounded-3xl bg-gradient-to-r from-slate-900 via-teal-900 to-emerald-800 p-8 text-white shadow-xl">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-teal-100">EventSync Control Center</p>
+            <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Admin System Overview</h1>
+            <p className="mt-3 max-w-2xl text-sm text-teal-50 sm:text-base">
+              Monitor platform health, user growth, event distribution, and events requiring attention.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              to="/manage"
+              className="rounded-xl bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20"
+            >
+              Manage Events
+            </Link>
+            <Link
+              to="/events"
+              className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-teal-800 transition hover:bg-teal-50"
+            >
+              View Events
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <StatCard
+          title="Total Users"
+          value={formatNumber(kpis.totalUsers)}
+          subtitle={`+${formatNumber(kpis.newUsers24h)} in last 24h`}
+          icon="👥"
+          accent="teal"
+        />
+        <StatCard
+          title="Total Events"
+          value={formatNumber(kpis.totalEvents)}
+          subtitle={`+${formatNumber(kpis.newEventsMonth)} this month`}
+          icon="📅"
+          accent="blue"
+        />
+        <StatCard
+          title="Event Bookmarks"
+          value={formatNumber(kpis.totalBookmarks)}
+          subtitle="In-app engagement metric"
+          icon="🔖"
+          accent="violet"
+        />
+        <StatCard
+          title="New Users (24h)"
+          value={formatNumber(kpis.newUsers24h)}
+          subtitle="Registered recently"
+          icon="✨"
+          accent="amber"
+        />
+        <StatCard
+          title="Registrations"
+          value="External"
+          subtitle="Not tracked in EventSync"
+          icon="🔗"
+          accent="slate"
+        />
+      </div>
+
+      <div className="mt-6 grid gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <SectionCard title="Recent Activity" subtitle="System activity from the last 24 hours">
+            {recentActivity.length === 0 ? (
+              <p className="rounded-2xl bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+                No recent activity in the last 24 hours.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {recentActivity.map((item) => (
+                  <div key={item.id} className="flex items-start gap-4 rounded-2xl border border-gray-100 px-4 py-3">
+                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-sm">
+                      {item.type === 'user_registered' ? '👤' : '📅'}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+                      <p className="text-sm text-gray-500">{item.subtitle}</p>
+                    </div>
+                    <span className="shrink-0 text-xs font-medium text-gray-400">{formatActivityTime(item.timestamp)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionCard>
+        </div>
+
+        <SectionCard title="Admin Alerts" subtitle="Items that may need attention">
+          {adminAlerts.length === 0 ? (
+            <p className="rounded-2xl bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+              No alerts right now. The system looks stable.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {adminAlerts.map((alert) => (
+                <div key={alert.id} className={`rounded-2xl border px-4 py-3 text-sm ${alertStyles[alert.level]}`}>
+                  {alert.message}
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <SectionCard title="Events by Platform" subtitle={`${formatNumber(eventOverview.totalEvents)} total events in system`}>
+          <HorizontalBars items={eventsByPlatform} />
+        </SectionCard>
+
+        <SectionCard title="Event Overview" subtitle="Current event lifecycle snapshot">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl bg-gray-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Total Events</p>
+              <p className="mt-2 text-2xl font-bold text-gray-900">{formatNumber(eventOverview.totalEvents)}</p>
+            </div>
+            <div className="rounded-2xl bg-emerald-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Upcoming</p>
+              <p className="mt-2 text-2xl font-bold text-emerald-900">{formatNumber(eventOverview.upcomingEvents)}</p>
+            </div>
+            <div className="rounded-2xl bg-amber-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Closing Soon (7d)</p>
+              <p className="mt-2 text-2xl font-bold text-amber-900">{formatNumber(eventOverview.closingWithin7d)}</p>
+            </div>
+            <div className="rounded-2xl bg-rose-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-rose-700">Expired</p>
+              <p className="mt-2 text-2xl font-bold text-rose-900">{formatNumber(eventOverview.expiredEvents)}</p>
+            </div>
+          </div>
+          <p className="mt-4 text-sm text-gray-500">
+            {formatNumber(eventOverview.closingWithin24h)} event(s) closing within 24 hours.
+          </p>
+        </SectionCard>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <SectionCard title="User Growth" subtitle="Registration trend over the last 7 days">
+          <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-xs text-gray-500">Today</p>
+              <p className="text-lg font-bold text-gray-900">{formatNumber(userGrowth.newUsersToday)}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-xs text-gray-500">This Week</p>
+              <p className="text-lg font-bold text-gray-900">{formatNumber(userGrowth.newUsersWeek)}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-xs text-gray-500">This Month</p>
+              <p className="text-lg font-bold text-gray-900">{formatNumber(userGrowth.newUsersMonth)}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-xs text-gray-500">Total Users</p>
+              <p className="text-lg font-bold text-gray-900">{formatNumber(userGrowth.totalUsers)}</p>
+            </div>
+          </div>
+          <SimpleBarChart data={userGrowth.trend7d} barColor="bg-teal-500" />
+        </SectionCard>
+
+        <SectionCard title="Event Additions" subtitle="New events added over the last 7 days">
+          <p className="mb-4 text-sm text-gray-500">{engagement.registrationsNote}</p>
+          <SimpleBarChart data={eventCreationTrend} barColor="bg-blue-500" />
+          <div className="mt-5 rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-4">
+            <p className="text-sm font-semibold text-gray-700">Registration analytics unavailable</p>
+            <p className="mt-1 text-sm text-gray-500">
+              EventSync stores {formatNumber(engagement.totalBookmarks)} bookmarks as in-app engagement because registrations happen on external platforms.
+            </p>
+          </div>
+        </SectionCard>
+      </div>
+
+      <div className="mt-6">
+        <SectionCard
+          title="Upcoming & Closing Events"
+          subtitle="Events requiring admin attention in the next 7 days"
+          action={
+            <Link to="/manage" className="text-sm font-semibold text-teal-600 hover:text-teal-700">
+              Manage events →
+            </Link>
+          }
+        >
+          {closingEvents.length === 0 ? (
+            <p className="rounded-2xl bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+              No verified events are closing within the next 7 days.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-500">
+                    <th className="px-3 py-3 font-semibold">Event</th>
+                    <th className="px-3 py-3 font-semibold">Platform</th>
+                    <th className="px-3 py-3 font-semibold">Deadline</th>
+                    <th className="px-3 py-3 font-semibold">Time Remaining</th>
+                    <th className="px-3 py-3 font-semibold">Bookmarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {closingEvents.map((event) => (
+                    <tr key={event.id} className="border-b border-gray-50 hover:bg-gray-50">
+                      <td className="px-3 py-4 font-medium text-gray-900">{event.title}</td>
+                      <td className="px-3 py-4 text-gray-600">{event.platform}</td>
+                      <td className="px-3 py-4 text-gray-600">{formatDeadline(event.registrationDeadline)}</td>
+                      <td className="px-3 py-4">
+                        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                          {event.timeRemaining}
+                        </span>
+                      </td>
+                      <td className="px-3 py-4 text-gray-600">{formatNumber(event.bookmarkCount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </SectionCard>
+      </div>
+
+      <div className="mt-6">
+        <SectionCard title="System Health" subtitle="Live status based on current application state">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {Object.entries(systemHealth).map(([key, item]) => (
+              <div key={key} className="rounded-2xl border border-gray-100 p-4">
+                <p className="text-sm font-semibold capitalize text-gray-700">{key.replace(/([A-Z])/g, ' $1')}</p>
+                <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${healthStyles[item.status]}`}>
+                  {item.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      </div>
+    </div>
+  )
+}

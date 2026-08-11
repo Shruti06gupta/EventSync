@@ -9,9 +9,12 @@ import Events from './pages/Events'
 import EventDetails from './pages/EventDetails'
 import Bookmarks from './pages/Bookmarks'
 import ManageEvents from './pages/ManageEvents'
+import AdminDashboard from './pages/AdminDashboard'
 import { AuthProvider } from './context/AuthContext'
 import { NotificationsProvider } from './context/NotificationsContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import AdminRoute from './components/AdminRoute'
+import CenteredLayout from './components/CenteredLayout'
 import Navbar from './components/Navbar'
 
 export default function App() {
@@ -20,21 +23,20 @@ export default function App() {
       <NotificationsProvider>
         <div className="min-h-screen bg-gray-50">
           <Navbar />
-          <div className="flex items-center justify-center py-12">
-            <Routes>
-              <Route path="/" element={<Login />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
-              <Route path="/events/:id" element={<ProtectedRoute><EventDetails /></ProtectedRoute>} />
-              <Route path="/bookmarks" element={<ProtectedRoute><Bookmarks /></ProtectedRoute>} />
-              <Route path="/manage" element={<ProtectedRoute><ManageEvents /></ProtectedRoute>} />
-              <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </div>
+          <Routes>
+            <Route path="/" element={<CenteredLayout><Login /></CenteredLayout>} />
+            <Route path="/login" element={<CenteredLayout><Login /></CenteredLayout>} />
+            <Route path="/register" element={<CenteredLayout><Register /></CenteredLayout>} />
+            <Route path="/forgot-password" element={<CenteredLayout><ForgotPassword /></CenteredLayout>} />
+            <Route path="/reset-password" element={<CenteredLayout><ResetPassword /></CenteredLayout>} />
+            <Route path="/profile" element={<ProtectedRoute><CenteredLayout><Profile /></CenteredLayout></ProtectedRoute>} />
+            <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
+            <Route path="/events/:id" element={<ProtectedRoute><EventDetails /></ProtectedRoute>} />
+            <Route path="/bookmarks" element={<ProtectedRoute><Bookmarks /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />
+            <Route path="/manage" element={<ProtectedRoute><AdminRoute><ManageEvents /></AdminRoute></ProtectedRoute>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </div>
       </NotificationsProvider>
     </AuthProvider>

@@ -16,7 +16,7 @@ const reminderLogSchema = new mongoose.Schema(
     },
     stage: {
       type: String,
-      enum: ['48h', '24h', '3h'],
+      enum: ['weekly', '24h', '6h'],
       required: true,
     },
   },
