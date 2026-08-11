@@ -10,7 +10,7 @@ const cookieOptions = {
 
 const register = async (req, res) => {
   try {
-    const { name, email, password, confirmPassword, college, interests } = req.body;
+    const { name, email, password, confirmPassword, college, interests, accountType, adminCode } = req.body;
 
     if (!name || !email || !password || !confirmPassword || !college) {
       return res.status(400).json({ message: 'Please fill all required fields' });
@@ -18,6 +18,26 @@ const register = async (req, res) => {
 
     if (password !== confirmPassword) {
       return res.status(400).json({ message: 'Passwords do not match' });
+    }
+
+    let role = 'student';
+
+    if (accountType === 'admin') {
+      if (!adminCode) {
+        return res.status(400).json({ message: 'Admin code is required for admin registration' });
+      }
+
+      if (!process.env.ADMIN_CODE) {
+        return res.status(503).json({ message: 'Admin registration is not configured' });
+      }
+
+      if (adminCode !== process.env.ADMIN_CODE) {
+        return res.status(403).json({ message: 'Invalid admin code' });
+      }
+
+      role = 'admin';
+    } else if (accountType && accountType !== 'student') {
+      return res.status(400).json({ message: 'Invalid account type' });
     }
 
     const existingUser = await User.findOne({ email });
@@ -31,7 +51,7 @@ const register = async (req, res) => {
       password,
       college,
       interests: Array.isArray(interests) ? interests : [],
-      role: 'student',
+      role,
     });
 
     return res.status(201).json({

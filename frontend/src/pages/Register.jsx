@@ -11,6 +11,8 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [college, setCollege] = useState('')
+  const [accountType, setAccountType] = useState('student')
+  const [adminCode, setAdminCode] = useState('')
   const [availableTags, setAvailableTags] = useState([])
   const [interests, setInterests] = useState([])
   const [customInterest, setCustomInterest] = useState('')
@@ -76,16 +78,28 @@ export default function Register() {
       return
     }
 
+    if (accountType === 'admin' && !adminCode.trim()) {
+      setError('Admin code is required for admin registration')
+      return
+    }
+
     setLoading(true)
     try {
-      await register({ 
-        name, 
-        email, 
-        password, 
-        confirmPassword, 
+      const payload = {
+        name,
+        email,
+        password,
+        confirmPassword,
         college,
-        interests
-      })
+        interests,
+        accountType,
+      }
+
+      if (accountType === 'admin') {
+        payload.adminCode = adminCode.trim()
+      }
+
+      await register(payload)
       await login(email, password)
       navigate('/profile')
     } catch (err) {
@@ -177,6 +191,53 @@ export default function Register() {
             disabled={loading}
           />
         </div>
+
+        <div>
+          <label className="block text-sm text-gray-600 mb-2">Account Type</label>
+          <div className="flex gap-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="accountType"
+                value="student"
+                checked={accountType === 'student'}
+                onChange={() => {
+                  setAccountType('student')
+                  setAdminCode('')
+                }}
+                disabled={loading}
+                className="text-teal-600 focus:ring-teal-600"
+              />
+              <span className="text-sm text-gray-700">Student</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="accountType"
+                value="admin"
+                checked={accountType === 'admin'}
+                onChange={() => setAccountType('admin')}
+                disabled={loading}
+                className="text-teal-600 focus:ring-teal-600"
+              />
+              <span className="text-sm text-gray-700">Admin</span>
+            </label>
+          </div>
+        </div>
+
+        {accountType === 'admin' && (
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Admin Code</label>
+            <input
+              type="password"
+              value={adminCode}
+              onChange={e => setAdminCode(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600"
+              placeholder="enter admin code"
+              disabled={loading}
+            />
+          </div>
+        )}
 
         <div>
           <label className="block text-sm text-gray-600 mb-2">Interests (optional)</label>
