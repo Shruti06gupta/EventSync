@@ -111,12 +111,12 @@ const getDashboardStats = async (req, res) => {
       User.find({ createdAt: { $gte: last24h } })
         .select('name createdAt')
         .sort({ createdAt: -1 })
-        .limit(10)
+        .limit(30)
         .lean(),
       Event.find({ createdAt: { $gte: last24h } })
         .select('title source createdAt registrationDeadline')
         .sort({ createdAt: -1 })
-        .limit(10)
+        .limit(30)
         .lean(),
       User.find({ createdAt: { $gte: last7d } }).select('createdAt').lean(),
       Event.find({ createdAt: { $gte: last7d } }).select('createdAt').lean(),
@@ -163,7 +163,7 @@ const getDashboardStats = async (req, res) => {
       })),
     ]
       .sort((left, right) => new Date(right.timestamp) - new Date(left.timestamp))
-      .slice(0, 12);
+      .slice(0, 30);
 
     const closingEvents = closingEventsRaw.map((event) => ({
       id: event._id,

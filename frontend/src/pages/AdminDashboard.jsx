@@ -29,6 +29,24 @@ const healthStyles = {
   unknown: 'bg-gray-100 text-gray-600',
 }
 
+const ACTIVITY_PREVIEW_COUNT = 5
+const DISMISSED_ACTIVITY_KEY = 'eventsync-admin-dismissed-activity'
+
+const readDismissedActivityIds = () => {
+  try {
+    const stored = localStorage.getItem(DISMISSED_ACTIVITY_KEY)
+    if (!stored) return []
+    const parsed = JSON.parse(stored)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+const writeDismissedActivityIds = (ids) => {
+  localStorage.setItem(DISMISSED_ACTIVITY_KEY, JSON.stringify(ids))
+}
+
 const alertStyles = {
   info: 'border-blue-100 bg-blue-50 text-blue-800',
   warning: 'border-amber-100 bg-amber-50 text-amber-800',
@@ -39,6 +57,8 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [activityExpanded, setActivityExpanded] = useState(false)
+  const [dismissedActivityIds, setDismissedActivityIds] = useState(readDismissedActivityIds)
 
   useEffect(() => {
     const loadStats = async () => {
@@ -99,6 +119,19 @@ export default function AdminDashboard() {
     adminAlerts = [],
     systemHealth = {},
   } = stats
+
+  const visibleActivity = recentActivity.filter((item) => !dismissedActivityIds.includes(item.id))
+  const hasHiddenActivity = visibleActivity.length > ACTIVITY_PREVIEW_COUNT
+  const displayedActivity = activityExpanded
+    ? visibleActivity
+    : visibleActivity.slice(0, ACTIVITY_PREVIEW_COUNT)
+
+  const handleClearActivity = () => {
+    const nextDismissedIds = [...new Set([...dismissedActivityIds, ...visibleActivity.map((item) => item.id)])]
+    setDismissedActivityIds(nextDismissedIds)
+    writeDismissedActivityIds(nextDismissedIds)
+    setActivityExpanded(false)
+  }
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
@@ -168,26 +201,58 @@ export default function AdminDashboard() {
 
       <div className="mt-6 grid gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2">
-          <SectionCard title="Recent Activity" subtitle="System activity from the last 24 hours">
-            {recentActivity.length === 0 ? (
+          <SectionCard
+            title="Recent Activity"
+            subtitle="System activity from the last 24 hours"
+            action={
+              visibleActivity.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleClearActivity}
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                >
+                  Clear all
+                </button>
+              ) : null
+            }
+          >
+            {visibleActivity.length === 0 ? (
               <p className="rounded-2xl bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
-                No recent activity in the last 24 hours.
+                {recentActivity.length === 0
+                  ? 'No recent activity in the last 24 hours.'
+                  : 'Recent activity cleared. New activity will appear here after refresh.'}
               </p>
             ) : (
-              <div className="space-y-3">
-                {recentActivity.map((item) => (
-                  <div key={item.id} className="flex items-start gap-4 rounded-2xl border border-gray-100 px-4 py-3">
-                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-sm">
-                      {item.type === 'user_registered' ? '👤' : '📅'}
+              <>
+                <div className="space-y-3">
+                  {displayedActivity.map((item) => (
+                    <div key={item.id} className="flex items-start gap-4 rounded-2xl border border-gray-100 px-4 py-3">
+                      <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-sm">
+                        {item.type === 'user_registered' ? '👤' : '📅'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+                        <p className="text-sm text-gray-500">{item.subtitle}</p>
+                      </div>
+                      <span className="shrink-0 text-xs font-medium text-gray-400">{formatActivityTime(item.timestamp)}</span>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-gray-900">{item.title}</p>
-                      <p className="text-sm text-gray-500">{item.subtitle}</p>
-                    </div>
-                    <span className="shrink-0 text-xs font-medium text-gray-400">{formatActivityTime(item.timestamp)}</span>
+                  ))}
+                </div>
+
+                {hasHiddenActivity ? (
+                  <div className="mt-4 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setActivityExpanded((prev) => !prev)}
+                      className="rounded-xl bg-teal-50 px-4 py-2 text-sm font-semibold text-teal-700 transition hover:bg-teal-100"
+                    >
+                      {activityExpanded
+                        ? 'Show less'
+                        : `Show more (${visibleActivity.length - ACTIVITY_PREVIEW_COUNT} more)`}
+                    </button>
                   </div>
-                ))}
-              </div>
+                ) : null}
+              </>
             )}
           </SectionCard>
         </div>
