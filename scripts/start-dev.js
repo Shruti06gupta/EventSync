@@ -152,11 +152,36 @@ function startProcess(name, command, colorWriter) {
   return child;
 }
 
+async function waitForBackend(maxAttempts = 40, delayMs = 500) {
+  const healthUrl = 'http://127.0.0.1:5000/health';
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const response = await fetch(healthUrl);
+      if (response.ok) {
+        console.log('Backend is ready on port 5000');
+        return;
+      }
+    } catch (error) {
+      // Backend not ready yet.
+    }
+
+    if (attempt === 1) {
+      console.log('Waiting for backend on http://127.0.0.1:5000...');
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+
+  console.warn('Backend did not respond on port 5000 before frontend startup. API requests may fail until it is running.');
+}
+
 async function main() {
   ensureManagedPortsAvailable();
   await waitForManagedPortsToClear();
 
   startProcess('backend', 'npm run start --prefix backend', process.stderr.write.bind(process.stderr));
+  await waitForBackend();
   startProcess('frontend', 'npm run dev --prefix frontend', process.stderr.write.bind(process.stderr));
 }
 
