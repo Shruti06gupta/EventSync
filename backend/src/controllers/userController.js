@@ -1,16 +1,20 @@
 const User = require('../models/User');
 
+const formatUserResponse = (user) => ({
+  id: user._id,
+  name: user.name,
+  email: user.email,
+  college: user.college,
+  interests: user.interests,
+  role: user.role,
+  profilePicture: user.profilePicture,
+  createdAt: user.createdAt,
+  lastLoginAt: user.lastLoginAt || null,
+});
+
 const getProfile = async (req, res) => {
   return res.status(200).json({
-    user: {
-      id: req.user._id,
-      name: req.user.name,
-      email: req.user.email,
-      college: req.user.college,
-      interests: req.user.interests,
-      role: req.user.role,
-      profilePicture: req.user.profilePicture,
-    },
+    user: formatUserResponse(req.user),
   });
 };
 
@@ -25,22 +29,16 @@ const updateProfile = async (req, res) => {
 
     if (name !== undefined) user.name = name;
     if (college !== undefined) user.college = college;
-    if (interests !== undefined) user.interests = Array.isArray(interests) ? interests : user.interests;
+    if (interests !== undefined && user.role !== 'admin') {
+      user.interests = Array.isArray(interests) ? interests : user.interests;
+    }
     if (profilePicture !== undefined) user.profilePicture = profilePicture;
 
     await user.save();
 
     return res.status(200).json({
       message: 'Profile updated successfully',
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        college: user.college,
-        interests: user.interests,
-        role: user.role,
-        profilePicture: user.profilePicture,
-      },
+      user: formatUserResponse(user),
     });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to update profile', error: error.message });

@@ -115,15 +115,19 @@ export default function Navbar() {
                 <Link to="/manage" className="text-sm font-semibold text-gray-700 hover:text-teal-600 transition duration-150">Manage Events</Link>
               </>
             )}
-            <Link to="/profile" className="text-sm font-semibold text-gray-700 hover:text-teal-600 transition duration-150 flex items-center gap-2">
+            <Link
+              to="/profile"
+              className="flex items-center transition duration-150 hover:opacity-80"
+              aria-label="Profile"
+              title="Profile"
+            >
               {user.profilePicture ? (
-                <img src={user.profilePicture} alt={user.name} className="h-6 w-6 rounded-full object-cover border border-gray-200" />
+                <img src={user.profilePicture} alt="" className="h-6 w-6 rounded-full object-cover border border-gray-200" />
               ) : (
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-100 text-[10px] font-bold text-teal-700">
                   {getInitials(user.name)}
                 </span>
               )}
-              Profile
             </Link>
 
             <div className="relative" ref={dropdownRef}>

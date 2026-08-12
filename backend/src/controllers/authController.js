@@ -89,6 +89,9 @@ const login = async (req, res) => {
       return res.status(404).json({ message: 'Invalid email or password' });
     }
 
+    user.lastLoginAt = new Date();
+    await user.save();
+
     const accessToken = createAccessToken(user._id);
     const refreshToken = createRefreshToken(user._id);
 
