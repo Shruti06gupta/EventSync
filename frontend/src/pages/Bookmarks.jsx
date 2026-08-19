@@ -2,15 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../api'
-import BookmarkButton from '../components/BookmarkButton'
+import EventCard from '../components/EventCard'
 import useBookmarks from '../hooks/useBookmarks'
-import { getEventImage } from '../utils/imageHelper'
-
-const formatDate = (value) =>
-  new Intl.DateTimeFormat('en-IN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
 
 export default function Bookmarks() {
   const [events, setEvents] = useState([])
@@ -46,180 +39,86 @@ export default function Bookmarks() {
     setEvents((current) => current.filter((event) => event._id !== eventId))
   }
 
-  const getDeadlineBadge = (deadlineDate) => {
-    if (!deadlineDate) return null
-    const now = new Date()
-    const deadline = new Date(deadlineDate)
-    const timeToDeadline = deadline.getTime() - now.getTime()
-
-    if (timeToDeadline < 0) return null
-    if (timeToDeadline <= 3 * 60 * 60 * 1000) {
-      return (
-        <span className="flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-1 text-xs font-bold text-red-700 shadow-sm">
-          🚨 Last 3 hours
-        </span>
-      )
-    }
-    if (timeToDeadline <= 24 * 60 * 60 * 1000) {
-      return (
-        <span className="flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-1 text-xs font-bold text-orange-700 shadow-sm">
-          ⚠ Closes tomorrow
-        </span>
-      )
-    }
-    if (timeToDeadline <= 48 * 60 * 60 * 1000) {
-      return (
-        <span className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700 shadow-sm">
-          ⏰ Closes in 48 hours
-        </span>
-      )
-    }
-    return null
-  }
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8 rounded-3xl bg-gradient-to-r from-teal-600 to-cyan-500 p-8 text-white shadow-xl">
-        <p className="text-sm uppercase tracking-[0.3em] text-teal-100">Your collection</p>
-        <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Saved events</h1>
-        <p className="mt-3 max-w-2xl text-teal-50">
-          Conferences and campus events you bookmarked for later.
-        </p>
-        {!loading && (
-          <div className="mt-6 flex flex-wrap gap-3 text-sm">
-            <span className="rounded-full bg-white/15 px-4 py-2">
-              {events.length} saved {events.length === 1 ? 'event' : 'events'}
-            </span>
-            {events.slice(0, 3).map((event) =>
-              event.category ? (
-                <span key={event._id} className="rounded-full bg-white/15 px-4 py-2">
-                  {event.category}
-                </span>
-              ) : null
-            )}
+    <div className="min-h-screen bg-brand-bg pb-12">
+      {/* Page Header */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 pb-6">
+        <div className="space-y-2">
+          <p className="text-xs font-bold uppercase tracking-widest text-brand-teal">Saved Events</p>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-brand-text tracking-tight">
+            Your Bookmarked Events
+          </h1>
+          <p className="max-w-2xl text-base text-brand-muted">
+            Your bookmarked events, all in one place. Quick access to opportunities you want to come back to.
+          </p>
+          {!loading && events.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3 pt-2 text-sm text-brand-muted">
+              <span className="font-semibold text-brand-text">{events.length}</span>
+              <span>{events.length === 1 ? 'event saved' : 'events saved'} for later</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Events Grid */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        {loading ? (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <div
+                key={n}
+                className="h-96 animate-pulse rounded-3xl border border-slate-200 bg-white p-5 shadow-soft-sm"
+              >
+                <div className="h-40 rounded-2xl bg-slate-100" />
+                <div className="mt-4 h-5 w-3/4 rounded bg-slate-100" />
+                <div className="mt-2 h-4 w-1/2 rounded bg-slate-100" />
+                <div className="mt-3 h-4 w-full rounded bg-slate-100" />
+                <div className="mt-2 h-4 w-2/3 rounded bg-slate-100" />
+                <div className="mt-4 h-8 w-1/3 rounded bg-slate-100" />
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="rounded-3xl border border-rose-200 bg-white p-12 text-center shadow-soft-sm">
+            <div className="text-4xl mb-3">⚠️</div>
+            <h3 className="text-lg font-bold text-rose-800">Unable to load saved events</h3>
+            <p className="mt-2 text-sm text-rose-600">{error}</p>
+            <button
+              type="button"
+              onClick={loadBookmarks}
+              className="mt-6 rounded-xl bg-brand-teal px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-teal-dark hover:shadow-soft-md active:scale-95"
+            >
+              Try Again
+            </button>
+          </div>
+        ) : events.length === 0 ? (
+          <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-soft-sm">
+            <div className="text-5xl mb-4">🔖</div>
+            <h3 className="text-xl font-bold text-brand-text">No saved events yet</h3>
+            <p className="mt-2 text-sm text-brand-muted">
+              Bookmark events you want to come back to later.
+            </p>
+            <Link
+              to="/events"
+              className="mt-6 inline-flex items-center justify-center rounded-xl bg-brand-teal px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-teal-dark hover:shadow-soft-md active:scale-95"
+            >
+              Explore Events
+            </Link>
+          </div>
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {events.map((event) => (
+              <EventCard
+                key={event._id}
+                event={event}
+                isBookmarked={isBookmarked(event._id)}
+                onBookmarkToggle={handleToggle}
+              />
+            ))}
           </div>
         )}
       </div>
-
-      {loading ? (
-        <div className="rounded-3xl bg-white p-8 text-center shadow-lg">Loading saved events...</div>
-      ) : error ? (
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-700 shadow-sm">
-          {error}
-        </div>
-      ) : events.length === 0 ? (
-        <div className="rounded-3xl bg-white p-10 text-center shadow-lg">
-          <h2 className="text-xl font-semibold text-gray-900">No saved events yet</h2>
-          <p className="mt-2 text-gray-600">Tap Save on any event to add it here.</p>
-          <Link
-            to="/events"
-            className="mt-6 inline-block rounded-xl bg-teal-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-teal-700 hover:shadow-md active:scale-95 transform duration-150"
-          >
-            Browse events
-          </Link>
-        </div>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {events.map((event) => (
-            <article
-              key={event._id}
-              className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
-            >
-              <img
-                src={getEventImage(event.image, event.title, event.organizer, event.category, event.source)}
-                alt={event.title}
-                className="h-48 w-full shrink-0 object-cover"
-              />
-
-              <div className="absolute right-4 top-4 flex flex-col items-end gap-2">
-                {getDeadlineBadge(event.registrationDeadline)}
-              </div>
-
-              <div className="flex flex-grow flex-col p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <h2 className="line-clamp-1 text-lg font-semibold text-gray-900">{event.title}</h2>
-                  <span className="shrink-0 rounded-full bg-teal-100 px-3 py-1 text-xs font-medium text-teal-700">
-                    {event.mode}
-                  </span>
-                </div>
-
-                <p className="mt-3 line-clamp-3 flex-grow text-sm text-gray-600">{event.description}</p>
-
-                <div className="mt-4 space-y-2 text-sm text-gray-600">
-                  <p>
-                    <span className="font-medium text-gray-800">Organizer:</span> {event.organizer}
-                  </p>
-                  <p>
-                    <span className="font-medium text-gray-800">College:</span> {event.college}
-                  </p>
-                  <p>
-                    <span className="font-medium text-gray-800">Starts:</span> {formatDate(event.startDate)}
-                  </p>
-                  <p>
-                    <span className="font-medium text-gray-800">Deadline:</span> {formatDate(event.registrationDeadline)}
-                  </p>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {event.tags?.slice(0, 3).map((tag) => (
-                    <span key={tag} className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
-                  <Link
-                    to={`/events/${event._id}`}
-                    className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 active:scale-95 transform duration-150"
-                  >
-                    View details
-                  </Link>
-                  <BookmarkButton
-                    eventId={event._id}
-                    isBookmarked={isBookmarked(event._id)}
-                    onToggle={handleToggle}
-                    size="sm"
-                  />
-                  {(() => {
-                    const isDeadlinePassed = new Date(event.registrationDeadline) < new Date()
-                    if (isDeadlinePassed) {
-                      return (
-                        <button
-                          disabled
-                          className="cursor-not-allowed rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-400"
-                        >
-                          Registration Closed
-                        </button>
-                      )
-                    }
-                    if (!event.eventLink) {
-                      return (
-                        <button
-                          disabled
-                          className="cursor-not-allowed rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-400"
-                        >
-                          Link Not Available
-                        </button>
-                      )
-                    }
-                    return (
-                      <a
-                        href={event.eventLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 hover:shadow-md active:scale-95 transform duration-150"
-                      >
-                        Register Now
-                      </a>
-                    )
-                  })()}
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
     </div>
   )
 }
