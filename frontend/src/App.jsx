@@ -1,5 +1,6 @@
 import React from 'react'
 import { Navigate, Routes, Route } from 'react-router-dom'
+import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
@@ -21,10 +22,10 @@ export default function App() {
   return (
     <AuthProvider>
       <NotificationsProvider>
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-brand-bg">
           <Navbar />
           <Routes>
-            <Route path="/" element={<CenteredLayout><Login /></CenteredLayout>} />
+            <Route path="/" element={<Home />} />
             <Route path="/login" element={<CenteredLayout><Login /></CenteredLayout>} />
             <Route path="/register" element={<CenteredLayout><Register /></CenteredLayout>} />
             <Route path="/forgot-password" element={<CenteredLayout><ForgotPassword /></CenteredLayout>} />

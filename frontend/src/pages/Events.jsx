@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import api from '../api'
 import BookmarkButton from '../components/BookmarkButton'
 import useBookmarks from '../hooks/useBookmarks'
@@ -12,14 +12,18 @@ const formatDate = (value) =>
   }).format(new Date(value))
 
 export default function Events() {
+  const [searchParams] = useSearchParams()
+  const initialSearch = searchParams.get('search') || ''
+  const initialCategory = searchParams.get('category') || ''
+
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({ totalPages: 1, totalEvents: 0 })
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [category, setCategory] = useState('')
+  const [search, setSearch] = useState(initialSearch)
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch)
+  const [category, setCategory] = useState(initialCategory)
   const [mode, setMode] = useState('')
   const [college, setCollege] = useState('')
   const [source, setSource] = useState('')
