@@ -1,15 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import api from '../api'
-import BookmarkButton from '../components/BookmarkButton'
+import EventCard from '../components/EventCard'
 import useBookmarks from '../hooks/useBookmarks'
-import { getEventImage } from '../utils/imageHelper'
-
-const formatDate = (value) =>
-  new Intl.DateTimeFormat('en-IN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
 
 export default function Events() {
   const [searchParams] = useSearchParams()
@@ -78,263 +71,246 @@ export default function Events() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8 rounded-3xl bg-gradient-to-r from-teal-600 to-cyan-500 p-8 text-white shadow-xl">
-        <p className="text-sm uppercase tracking-[0.3em] text-teal-100">Discover events</p>
-        <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Upcoming campus events</h1>
-        <p className="mt-3 max-w-2xl text-teal-50">
-          Browse verified events, check registration deadlines, and open the event page directly.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-3 text-sm">
-          <span className="rounded-full bg-white/15 px-4 py-2">{pagination.totalEvents} verified events</span>
-          <span className="rounded-full bg-white/15 px-4 py-2">{pagination.totalPages} pages</span>
-          {availableCategories.slice(0, 3).map((category) => (
-            <span key={category} className="rounded-full bg-white/15 px-4 py-2">
-              {category}
-            </span>
-          ))}
+    <div className="min-h-screen bg-brand-bg pb-12">
+      {/* Page Header */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 pb-6">
+        <div className="space-y-2">
+          <p className="text-xs font-bold uppercase tracking-widest text-brand-teal">Discover Events</p>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-brand-text tracking-tight">
+            Find Hackathons, Workshops & Conferences
+          </h1>
+          <p className="max-w-2xl text-base text-brand-muted">
+            Browse verified events from across EventSync. Track registration deadlines and discover opportunities matching your interests.
+          </p>
+          {!loading && pagination.totalEvents > 0 && (
+            <div className="flex flex-wrap items-center gap-3 pt-2 text-sm text-brand-muted">
+              <span className="font-semibold text-brand-text">{pagination.totalEvents}</span>
+              <span>events available</span>
+              <span className="text-slate-300">·</span>
+              <span className="font-semibold text-brand-text">{pagination.totalPages}</span>
+              <span>pages</span>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="mb-6 rounded-3xl bg-white p-5 shadow-sm">
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-gray-700">Search</span>
-            <input
-              type="text"
-              value={search}
-              onChange={(event) => resetPageAndFilters(setSearch)(event.target.value)}
-              placeholder="Search title..."
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-teal-500"
-            />
-          </label>
+      {/* Search Bar */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mb-6">
+        <div className="relative max-w-2xl">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+            <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            value={search}
+            onChange={(event) => resetPageAndFilters(setSearch)(event.target.value)}
+            placeholder="Search events, hackathons, workshops..."
+            className="w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 py-3.5 text-sm text-brand-text placeholder-slate-400 shadow-soft-sm outline-none transition-all duration-200 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20"
+          />
+        </div>
+      </div>
 
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-gray-700">Category</span>
+      {/* Filter Bar */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mb-8">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Category Filter */}
             <select
               value={category}
               onChange={(event) => resetPageAndFilters(setCategory)(event.target.value)}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-teal-500"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 outline-none transition hover:border-brand-teal focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20"
             >
-              <option value="">All categories</option>
+              <option value="">Category</option>
               {availableCategories.map((item) => (
                 <option key={item} value={item}>
                   {item}
                 </option>
               ))}
             </select>
-          </label>
 
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-gray-700">Mode</span>
+            {/* Mode Filter */}
             <select
               value={mode}
               onChange={(event) => resetPageAndFilters(setMode)(event.target.value)}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-teal-500"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 outline-none transition hover:border-brand-teal focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20"
             >
-              <option value="">All modes</option>
+              <option value="">Mode</option>
               <option value="Online">Online</option>
               <option value="Offline">Offline</option>
               <option value="Hybrid">Hybrid</option>
             </select>
-          </label>
 
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-gray-700">College</span>
-            <input
-              type="text"
-              value={college}
-              onChange={(event) => resetPageAndFilters(setCollege)(event.target.value)}
-              placeholder="Filter by college"
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-teal-500"
-            />
-          </label>
-
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-gray-700">Source</span>
+            {/* Source Filter */}
             <select
               value={source}
               onChange={(event) => resetPageAndFilters(setSource)(event.target.value)}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-teal-500"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 outline-none transition hover:border-brand-teal focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20"
             >
-              <option value="">All sources</option>
+              <option value="">Source</option>
               <option value="devfolio">Devfolio</option>
               <option value="unstop">Unstop</option>
               <option value="manual">Manual / Admin</option>
             </select>
-          </label>
-        </div>
 
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              setPage(1)
-              setSearch('')
-              setCategory('')
-              setMode('')
-              setCollege('')
-              setSource('')
-            }}
-            className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
-          >
-            Clear filters
-          </button>
-          <p className="flex items-center text-sm text-gray-500">
-            Showing page {page} of {pagination.totalPages} · {events.length} events on this page
-          </p>
+            {/* College Filter */}
+            <input
+              type="text"
+              value={college}
+              onChange={(event) => resetPageAndFilters(setCollege)(event.target.value)}
+              placeholder="College..."
+              className="w-40 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 outline-none transition hover:border-brand-teal focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20"
+            />
+
+            <div className="flex-1" />
+
+            {/* Clear Filters Button */}
+            {(search || category || mode || college || source) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPage(1)
+                  setSearch('')
+                  setCategory('')
+                  setMode('')
+                  setCollege('')
+                  setSource('')
+                }}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 active:scale-95"
+              >
+                Clear Filters
+              </button>
+            )}
+
+            {/* Results Count */}
+            <span className="text-xs text-slate-500">
+              {events.length} events on this page
+            </span>
+          </div>
         </div>
       </div>
 
-      {loading ? (
-        <div className="rounded-3xl bg-white p-8 text-center shadow-lg">Loading events...</div>
-      ) : error ? (
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-700 shadow-sm">
-          {error}
-        </div>
-      ) : events.length === 0 ? (
-        <div className="rounded-3xl bg-white p-10 text-center shadow-lg">
-          <h2 className="text-xl font-semibold text-gray-900">No upcoming events yet</h2>
-          <p className="mt-2 text-gray-600">Check back later for new verified events.</p>
-        </div>
-      ) : (
-        <>
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {events.map((event) => (
-              <article
-                key={event._id}
-                className="flex flex-col h-full overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+      {/* Events Grid */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        {loading ? (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <div
+                key={n}
+                className="h-96 animate-pulse rounded-3xl border border-slate-200 bg-white p-5 shadow-soft-sm"
               >
-                <img
-                  src={getEventImage(event.image, event.title, event.organizer, event.category, event.source)}
-                  alt={event.title}
-                  className="h-48 w-full object-cover shrink-0"
-                />
-                
-                <div className="flex flex-col flex-grow p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <h2 className="text-lg font-semibold text-gray-900 line-clamp-1">{event.title}</h2>
-                    <span className="shrink-0 rounded-full bg-teal-100 px-3 py-1 text-xs font-medium text-teal-700">
-                      {event.mode}
-                    </span>
-                  </div>
-
-                  <p className="mt-3 line-clamp-3 text-sm text-gray-600 flex-grow">{event.description}</p>
-
-                  <div className="mt-4 space-y-2 text-sm text-gray-600">
-                    <p>
-                      <span className="font-medium text-gray-800">Organizer:</span> {event.organizer}
-                    </p>
-                    <p>
-                      <span className="font-medium text-gray-800">College:</span> {event.college}
-                    </p>
-                    <p>
-                      <span className="font-medium text-gray-800">Starts:</span> {formatDate(event.startDate)}
-                    </p>
-                    <p>
-                      <span className="font-medium text-gray-800">Deadline:</span> {formatDate(event.registrationDeadline)}
-                    </p>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {event.tags?.slice(0, 3).map((tag) => (
-                      <span key={tag} className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="mt-5 flex flex-wrap items-center gap-3 pt-4 border-t border-gray-100">
-                    <Link
-                      to={`/events/${event._id}`}
-                      className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 active:scale-95 transform duration-150"
-                    >
-                      View details
-                    </Link>
-                    <BookmarkButton
-                      eventId={event._id}
-                      isBookmarked={isBookmarked(event._id)}
-                      onToggle={toggleBookmark}
-                      size="sm"
-                    />
-                    {(() => {
-                      const isDeadlinePassed = new Date(event.registrationDeadline) < new Date();
-                      if (isDeadlinePassed) {
-                        return (
-                          <button
-                            disabled
-                            className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-400 cursor-not-allowed"
-                          >
-                            Registration Closed
-                          </button>
-                        );
-                      }
-                      if (!event.eventLink) {
-                        return (
-                          <button
-                            disabled
-                            className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-400 cursor-not-allowed"
-                          >
-                            Link Not Available
-                          </button>
-                        );
-                      }
-                      return (
-                        <a
-                          href={event.eventLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 hover:shadow-md active:scale-95 transform duration-150"
-                        >
-                          Register Now
-                        </a>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </article>
+                <div className="h-40 rounded-2xl bg-slate-100" />
+                <div className="mt-4 h-5 w-3/4 rounded bg-slate-100" />
+                <div className="mt-2 h-4 w-1/2 rounded bg-slate-100" />
+                <div className="mt-3 h-4 w-full rounded bg-slate-100" />
+                <div className="mt-2 h-4 w-2/3 rounded bg-slate-100" />
+                <div className="mt-4 h-8 w-1/3 rounded bg-slate-100" />
+              </div>
             ))}
           </div>
-
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPage((currentPage) => Math.max(currentPage - 1, 1))}
-              disabled={page === 1}
-              className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-teal-300 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Prev
-            </button>
-
-            {Array.from({ length: pagination.totalPages }, (_, index) => {
-              const pageNum = index + 1;
-              return (
-                <button
-                  key={pageNum}
-                  type="button"
-                  onClick={() => setPage(pageNum)}
-                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                    page === pageNum
-                      ? 'bg-teal-600 text-white shadow-md'
-                      : 'bg-white border border-gray-300 text-gray-700 hover:border-teal-300 hover:text-teal-600'
-                  }`}
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
-
-            <button
-              type="button"
-              onClick={() => setPage((currentPage) => Math.min(currentPage + 1, pagination.totalPages))}
-              disabled={!pagination.hasNextPage}
-              className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-teal-300 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Next
-            </button>
+        ) : error ? (
+          <div className="rounded-3xl border border-rose-200 bg-rose-50 p-12 text-center shadow-soft-sm">
+            <div className="text-4xl mb-3">⚠️</div>
+            <h3 className="text-lg font-bold text-rose-800">Unable to load events</h3>
+            <p className="mt-2 text-sm text-rose-600">{error}</p>
           </div>
-        </>
-      )}
+        ) : events.length === 0 ? (
+          <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-soft-sm">
+            <div className="text-5xl mb-4">🔍</div>
+            <h3 className="text-xl font-bold text-brand-text">No events found</h3>
+            <p className="mt-2 text-sm text-brand-muted">
+              Try adjusting your search or filters to find what you're looking for.
+            </p>
+            {(search || category || mode || college || source) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPage(1)
+                  setSearch('')
+                  setCategory('')
+                  setMode('')
+                  setCollege('')
+                  setSource('')
+                }}
+                className="mt-6 rounded-xl bg-brand-teal px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-teal-dark hover:shadow-soft-md active:scale-95"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {events.map((event) => (
+                <EventCard
+                  key={event._id}
+                  event={event}
+                  isBookmarked={isBookmarked(event._id)}
+                  onBookmarkToggle={toggleBookmark}
+                />
+              ))}
+            </div>
+
+            {/* Pagination */}
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((currentPage) => Math.max(currentPage - 1, 1))}
+                disabled={page === 1}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-brand-teal hover:text-brand-teal disabled:cursor-not-allowed disabled:opacity-50 active:scale-95"
+              >
+                ← Previous
+              </button>
+
+              {Array.from({ length: Math.min(pagination.totalPages, 7) }, (_, index) => {
+                let pageNum;
+                if (pagination.totalPages <= 7) {
+                  pageNum = index + 1;
+                } else if (page <= 4) {
+                  pageNum = index < 5 ? index + 1 : '...';
+                } else if (page >= pagination.totalPages - 3) {
+                  pageNum = index < 2 ? (index === 0 ? 1 : '...') : pagination.totalPages - 6 + index;
+                } else {
+                  pageNum = index === 0 ? 1 : index === 1 ? '...' : index === 2 ? page - 1 : index === 3 ? page : index === 4 ? page + 1 : index === 5 ? '...' : pagination.totalPages;
+                }
+                
+                if (pageNum === '...') {
+                  return (
+                    <span key={`ellipsis-${index}`} className="px-2 text-sm text-slate-400">
+                      ...
+                    </span>
+                  );
+                }
+                
+                return (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setPage(pageNum)}
+                    className={`rounded-xl px-4 py-2.5 text-sm font-semibold shadow-sm transition active:scale-95 ${
+                      page === pageNum
+                        ? 'bg-brand-teal text-white border border-brand-teal'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:border-brand-teal hover:text-brand-teal'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={() => setPage((currentPage) => Math.min(currentPage + 1, pagination.totalPages))}
+                disabled={!pagination.hasNextPage}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-brand-teal hover:text-brand-teal disabled:cursor-not-allowed disabled:opacity-50 active:scale-95"
+              >
+                Next →
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }
