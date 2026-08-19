@@ -219,7 +219,7 @@ export default function Navbar() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                   </svg>
                   {unreadCount > 0 && (
-                    <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white animate-pulse">
+                    <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-brand-teal px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
                       {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                   )}
@@ -250,59 +250,94 @@ export default function Navbar() {
 
                     <div className="max-h-96 overflow-y-auto p-2">
                       {loading ? (
-                        <div className="py-8 text-center text-sm text-slate-500">
-                          Loading updates...
+                        <div className="space-y-2 py-4">
+                          {[1, 2, 3].map((n) => (
+                            <div key={n} className="animate-pulse rounded-xl border border-slate-100 bg-slate-50 p-3">
+                              <div className="flex gap-3">
+                                <div className="h-8 w-8 rounded-lg bg-slate-200" />
+                                <div className="flex-1 space-y-2">
+                                  <div className="h-3 w-3/4 rounded bg-slate-200" />
+                                  <div className="h-2 w-1/2 rounded bg-slate-200" />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       ) : error ? (
-                        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-                          <p>{error}</p>
+                        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-center">
+                          <div className="text-2xl mb-2">⚠️</div>
+                          <p className="text-sm font-semibold text-rose-800">Unable to load notifications</p>
+                          <p className="mt-1 text-xs text-rose-600">{error}</p>
                           <button
                             type="button"
                             onClick={() => loadNotifications()}
-                            className="mt-1 text-xs font-semibold text-rose-800 underline"
+                            className="mt-3 rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 active:scale-95"
                           >
-                            Try again
+                            Try Again
                           </button>
                         </div>
                       ) : recentNotifications.length === 0 ? (
-                        <div className="py-8 text-center text-sm text-slate-500">
-                          No notifications right now
+                        <div className="py-8 text-center">
+                          <div className="text-4xl mb-3">🔔</div>
+                          <p className="text-sm font-semibold text-slate-900">You're all caught up</p>
+                          <p className="mt-1 text-xs text-slate-500">New EventSync activity will appear here</p>
                         </div>
                       ) : (
                         <div className="space-y-1.5">
-                          {recentNotifications.map((notification) => (
-                            <button
-                              key={notification._id}
-                              type="button"
-                              onClick={() => handleMarkAsRead(notification)}
-                              className={`w-full rounded-xl p-3 text-left transition duration-150 ${
-                                notification.read
-                                  ? 'bg-white hover:bg-slate-50 text-slate-700'
-                                  : 'bg-brand-teal-subtle/60 hover:bg-brand-teal-subtle text-slate-900 border border-brand-teal/20'
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <p className="text-xs font-medium leading-snug">
-                                  {notification.message}
-                                </p>
-                                {!notification.read && (
-                                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-teal" />
-                                )}
-                              </div>
-                              <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
-                                <span>{formatTimestamp(notification.createdAt)}</span>
-                                <span className="font-semibold text-brand-teal">
-                                  {notification.read ? 'View' : 'Mark as read'}
-                                </span>
-                              </div>
-                            </button>
-                          ))}
+                          {recentNotifications.map((notification) => {
+                            const getNotificationIcon = (notif) => {
+                              const message = notif.message?.toLowerCase() || ''
+                              if (message.includes('deadline') || message.includes('reminder') || message.includes('closes')) {
+                                return '⏰'
+                              }
+                              if (message.includes('new event') || message.includes('added')) {
+                                return '📅'
+                              }
+                              if (message.includes('registered') || message.includes('user')) {
+                                return '👤'
+                              }
+                              return '🔔'
+                            }
+
+                            return (
+                              <button
+                                key={notification._id}
+                                type="button"
+                                onClick={() => handleMarkAsRead(notification)}
+                                className={`w-full rounded-xl p-3 text-left transition duration-150 ${
+                                  notification.read
+                                    ? 'bg-white hover:bg-slate-50 text-slate-700'
+                                    : 'bg-brand-teal-subtle/60 hover:bg-brand-teal-subtle text-slate-900 border border-brand-teal/20'
+                                }`}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <span className="mt-0.5 text-lg">{getNotificationIcon(notification)}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <p className="text-xs font-semibold leading-snug text-slate-900">
+                                        {notification.message}
+                                      </p>
+                                      {!notification.read && (
+                                        <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-teal" />
+                                      )}
+                                    </div>
+                                    <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
+                                      <span>{formatTimestamp(notification.createdAt)}</span>
+                                      <span className="font-semibold text-brand-teal">
+                                        {notification.read ? 'View' : 'Mark as read'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </button>
+                            )
+                          })}
 
                           {notifications.length > visibleCount && (
                             <button
                               type="button"
                               onClick={() => setVisibleCount((prev) => prev + 10)}
-                              className="mt-2 w-full rounded-xl bg-slate-50 py-2 text-center text-xs font-semibold text-brand-teal hover:bg-brand-teal-subtle transition"
+                              className="mt-2 w-full rounded-xl bg-slate-50 py-2 text-center text-xs font-semibold text-brand-teal hover:bg-brand-teal-subtle transition active:scale-95"
                             >
                               Load earlier updates
                             </button>
