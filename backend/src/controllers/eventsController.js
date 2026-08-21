@@ -2,6 +2,51 @@ const mongoose = require('mongoose');
 const Event = require('../models/Event');
 const { safeCreateEventNotifications } = require('../services/notificationService');
 
+const haversineDistanceKm = (lat1, lon1, lat2, lon2) => {
+  const toRad = (value) => (value * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusKm * c;
+};
+
+const geocodeLocation = async (locationName) => {
+  if (!locationName || !locationName.trim()) {
+    return null;
+  }
+
+  const query = encodeURIComponent(locationName.trim());
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${query}`;
+
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'EventSync/1.0',
+      Accept: 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Unable to resolve this location.');
+  }
+
+  const results = await response.json();
+  if (!Array.isArray(results) || results.length === 0) {
+    return null;
+  }
+
+  const match = results[0];
+  return {
+    latitude: Number(match.lat),
+    longitude: Number(match.lon),
+    displayName: match.display_name || locationName.trim(),
+  };
+};
+
 const getEvents = async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
@@ -14,11 +59,27 @@ const getEvents = async (req, res) => {
     const mode = req.query.mode?.trim();
     const college = req.query.college?.trim();
     const source = req.query.source?.trim().toLowerCase();
+    const locationName = req.query.locationName?.trim();
+    const radiusKm = Number(req.query.radiusKm) || 100;
+    const latitude = Number(req.query.latitude);
+    const longitude = Number(req.query.longitude);
+    const locationSearchActive = Boolean(locationName || (Number.isFinite(latitude) && Number.isFinite(longitude)));
 
-    // Updated filter: include events where registration deadline is within last 3 days
+    let resolvedLocation = null;
+    if (locationSearchActive) {
+      if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        resolvedLocation = { latitude, longitude };
+      } else {
+        resolvedLocation = await geocodeLocation(locationName);
+        if (!resolvedLocation) {
+          return res.status(400).json({ message: 'Location not found. Try a city, area, or nearby landmark.' });
+        }
+      }
+    }
+
     const filter = {
       isVerified: true,
-      registrationDeadline: { $gte: threeDaysAgo }
+      registrationDeadline: { $gte: threeDaysAgo },
     };
 
     const andConditions = [];
@@ -62,31 +123,78 @@ const getEvents = async (req, res) => {
       }
     }
 
+    if (locationSearchActive) {
+      const radiusInRadians = Math.min(Math.max(Number(radiusKm) || 100, 1), 5000) / 6378.1;
+      filter.location = {
+        $geoWithin: {
+          $centerSphere: [[resolvedLocation.longitude, resolvedLocation.latitude], radiusInRadians],
+        },
+      };
+    }
+
     if (andConditions.length > 0) {
       filter.$and = andConditions;
     }
 
-    // Fetch all matching events
-    const allEvents = await Event.find(filter)
-      .populate('createdBy', 'name email role college');
+    let allEvents = await Event.find(filter).populate('createdBy', 'name email role college');
 
-    // Sort events: open events first (by deadline ascending), then closed events (by deadline descending)
+    if (locationSearchActive && resolvedLocation) {
+      allEvents = allEvents
+        .map((event) => {
+          if (!event.location || !Array.isArray(event.location.coordinates) || event.location.coordinates.length < 2) {
+            return null;
+          }
+
+          const [eventLongitude, eventLatitude] = event.location.coordinates;
+          const distanceKm = haversineDistanceKm(
+            Number(eventLatitude),
+            Number(eventLongitude),
+            Number(resolvedLocation.latitude),
+            Number(resolvedLocation.longitude)
+          );
+
+          return {
+            ...event.toObject(),
+            distanceKm: Number(distanceKm.toFixed(1)),
+          };
+        })
+        .filter(Boolean)
+        .filter((event) => event.distanceKm <= (Number(radiusKm) || 100));
+    }
+
     allEvents.sort((a, b) => {
       const aDeadline = new Date(a.registrationDeadline);
       const bDeadline = new Date(b.registrationDeadline);
       const aIsOpen = aDeadline >= now;
       const bIsOpen = bDeadline >= now;
 
-      // Open events come before closed events
+      if (locationSearchActive) {
+        const aDistance = Number(a.distanceKm ?? Number.MAX_SAFE_INTEGER);
+        const bDistance = Number(b.distanceKm ?? Number.MAX_SAFE_INTEGER);
+
+        if (aIsOpen && !bIsOpen) return -1;
+        if (!aIsOpen && bIsOpen) return 1;
+
+        if (aIsOpen && bIsOpen) {
+          if (aDistance !== bDistance) return aDistance - bDistance;
+          return aDeadline.getTime() - bDeadline.getTime();
+        }
+
+        if (!aIsOpen && !bIsOpen) {
+          if (aDistance !== bDistance) return aDistance - bDistance;
+          return bDeadline.getTime() - aDeadline.getTime();
+        }
+
+        return 0;
+      }
+
       if (aIsOpen && !bIsOpen) return -1;
       if (!aIsOpen && bIsOpen) return 1;
 
-      // Within open events: sort by deadline ascending (soonest deadline first)
       if (aIsOpen && bIsOpen) {
         return aDeadline.getTime() - bDeadline.getTime();
       }
 
-      // Within closed events: sort by deadline descending (newest closed first)
       if (!aIsOpen && !bIsOpen) {
         return bDeadline.getTime() - aDeadline.getTime();
       }
@@ -94,15 +202,14 @@ const getEvents = async (req, res) => {
       return 0;
     });
 
-    // Sort by user's college first (preserve the main sort as much as possible)
     const userCollege = req.user?.college;
-    if (userCollege) {
+    if (userCollege && !locationSearchActive) {
       allEvents.sort((a, b) => {
         const aMatches = a.college && a.college.trim().toLowerCase() === userCollege.trim().toLowerCase();
         const bMatches = b.college && b.college.trim().toLowerCase() === userCollege.trim().toLowerCase();
         if (aMatches && !bMatches) return -1;
         if (!aMatches && bMatches) return 1;
-        return 0; // Preserve the main open/closed sort order
+        return 0;
       });
     }
 
@@ -129,10 +236,19 @@ const getEvents = async (req, res) => {
         college: college || '',
         source: source || '',
       },
+      locationSearch: locationSearchActive
+        ? {
+            active: true,
+            locationName: resolvedLocation?.displayName || locationName || 'Your location',
+            radiusKm: Number(radiusKm) || 100,
+            latitude: resolvedLocation?.latitude || null,
+            longitude: resolvedLocation?.longitude || null,
+          }
+        : { active: false },
     });
   } catch (error) {
     return res.status(500).json({
-      message: 'Failed to fetch events',
+      message: error.message || 'Failed to fetch events',
       error: error.message,
     });
   }

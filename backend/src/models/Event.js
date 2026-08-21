@@ -71,6 +71,22 @@ const eventSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    locationName: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    location: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: null,
+      },
+      coordinates: {
+        type: [Number],
+        default: undefined,
+      },
+    },
     image: {
       type: String,
       default: '',
@@ -118,6 +134,7 @@ const eventSchema = new mongoose.Schema(
 
 eventSchema.index({ isVerified: 1, registrationDeadline: 1 });
 eventSchema.index({ college: 1, category: 1 });
+eventSchema.index({ location: '2dsphere' });
 
 const Event = mongoose.model('Event', eventSchema);
 

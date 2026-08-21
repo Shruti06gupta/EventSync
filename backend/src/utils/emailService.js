@@ -10,6 +10,11 @@ const hasSmtpConfig = () =>
   (Boolean(process.env.EMAIL_SERVICE) || Boolean(process.env.EMAIL_HOST));
 
 const verifySmtpConnection = async () => {
+  if (process.env.EMAIL_DRY_RUN === 'true') {
+    console.log('[Email] Dry-run mode enabled; skipping SMTP verification.');
+    return { success: true, dryRun: true };
+  }
+
   if (!hasSmtpConfig()) {
     return { success: false, reason: 'SMTP credentials not configured' };
   }
