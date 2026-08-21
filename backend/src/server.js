@@ -26,6 +26,10 @@ const startServer = () => {
     if (isDatabaseReady) {
       initScheduler();
       initDeadlineCron();
+      
+      // Verify SMTP connection
+      const { verifySmtpConnection } = require('./utils/emailService');
+      verifySmtpConnection();
       return;
     }
 

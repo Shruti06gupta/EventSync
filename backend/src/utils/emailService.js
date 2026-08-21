@@ -9,6 +9,22 @@ const hasSmtpConfig = () =>
   Boolean(process.env.EMAIL_PASS) &&
   (Boolean(process.env.EMAIL_SERVICE) || Boolean(process.env.EMAIL_HOST));
 
+const verifySmtpConnection = async () => {
+  if (!hasSmtpConfig()) {
+    return { success: false, reason: 'SMTP credentials not configured' };
+  }
+
+  try {
+    const transporter = getTransporter();
+    await transporter.verify();
+    console.log('[Email] SMTP connection verified successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('[Email] SMTP verification failed:', error.message);
+    return { success: false, reason: error.message };
+  }
+};
+
 const getTransporter = () => {
   if (cachedTransporter) {
     return cachedTransporter;
@@ -119,4 +135,5 @@ module.exports = {
   normalizeRecipient,
   resetTransporter,
   hasSmtpConfig,
+  verifySmtpConnection,
 };

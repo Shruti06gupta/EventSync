@@ -71,33 +71,42 @@ export default function Events() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-bg pb-12">
-      {/* Page Header */}
+    <div className="min-h-screen bg-slate-50 pb-12">
+      {/* Hero Section */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8 pb-6">
-        <div className="space-y-2">
-          <p className="text-xs font-bold uppercase tracking-widest text-brand-teal">Discover Events</p>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-brand-text tracking-tight">
-            Find Hackathons, Workshops & Conferences
-          </h1>
-          <p className="max-w-2xl text-base text-brand-muted">
-            Browse verified events from across EventSync. Track registration deadlines and discover opportunities matching your interests.
-          </p>
-          {!loading && pagination.totalEvents > 0 && (
-            <div className="flex flex-wrap items-center gap-3 pt-2 text-sm text-brand-muted">
-              <span className="font-semibold text-brand-text">{pagination.totalEvents}</span>
-              <span>events available</span>
-              <span className="text-slate-300">·</span>
-              <span className="font-semibold text-brand-text">{pagination.totalPages}</span>
-              <span>pages</span>
-            </div>
-          )}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-teal-700 to-emerald-600 p-8 sm:p-12 text-white shadow-soft-xl">
+          {/* Decorative elements */}
+          <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-48 h-48 bg-white/5 rounded-full blur-2xl" />
+          <div className="absolute top-1/2 right-1/4 w-2 h-2 bg-white/30 rounded-full" />
+          <div className="absolute top-1/3 right-1/3 w-1.5 h-1.5 bg-white/20 rounded-full" />
+          <div className="absolute bottom-1/3 left-1/4 w-1 h-1 bg-white/25 rounded-full" />
+          
+          <div className="relative z-10">
+            <p className="text-xs font-bold uppercase tracking-widest text-teal-100 mb-2">Discover Events</p>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight mb-4">
+              Find Hackathons, Workshops & Conferences
+            </h1>
+            <p className="max-w-2xl text-base text-teal-100 mb-6">
+              Browse verified events from across EventSync. Track registration deadlines and discover opportunities matching your interests.
+            </p>
+            {!loading && pagination.totalEvents > 0 && (
+              <div className="flex flex-wrap items-center gap-3 text-sm text-teal-100">
+                <span className="font-semibold text-white">{pagination.totalEvents}</span>
+                <span>events available</span>
+                <span className="text-teal-200">·</span>
+                <span className="font-semibold text-white">{pagination.totalPages}</span>
+                <span>pages</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Search Bar */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mb-6">
-        <div className="relative max-w-2xl">
-          <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-5 pointer-events-none">
             <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -107,20 +116,20 @@ export default function Events() {
             value={search}
             onChange={(event) => resetPageAndFilters(setSearch)(event.target.value)}
             placeholder="Search events, hackathons, workshops..."
-            className="w-full rounded-2xl border border-slate-200 bg-white pl-12 pr-4 py-3.5 text-sm text-brand-text placeholder-slate-400 shadow-soft-sm outline-none transition-all duration-200 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20"
+            className="w-full rounded-2xl border border-slate-200 bg-white pl-14 pr-4 py-4 text-sm text-slate-900 placeholder-slate-400 shadow-soft-md outline-none transition-all duration-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
           />
         </div>
       </div>
 
       {/* Filter Bar */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mb-8">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft-sm">
           <div className="flex flex-wrap items-center gap-3">
             {/* Category Filter */}
             <select
               value={category}
               onChange={(event) => resetPageAndFilters(setCategory)(event.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 outline-none transition hover:border-brand-teal focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 outline-none transition hover:border-teal-500 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
             >
               <option value="">Category</option>
               {availableCategories.map((item) => (
@@ -134,7 +143,7 @@ export default function Events() {
             <select
               value={mode}
               onChange={(event) => resetPageAndFilters(setMode)(event.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 outline-none transition hover:border-brand-teal focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 outline-none transition hover:border-teal-500 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
             >
               <option value="">Mode</option>
               <option value="Online">Online</option>
@@ -146,7 +155,7 @@ export default function Events() {
             <select
               value={source}
               onChange={(event) => resetPageAndFilters(setSource)(event.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 outline-none transition hover:border-brand-teal focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 outline-none transition hover:border-teal-500 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
             >
               <option value="">Source</option>
               <option value="devfolio">Devfolio</option>
@@ -160,7 +169,7 @@ export default function Events() {
               value={college}
               onChange={(event) => resetPageAndFilters(setCollege)(event.target.value)}
               placeholder="College..."
-              className="w-40 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 outline-none transition hover:border-brand-teal focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20"
+              className="w-40 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 outline-none transition hover:border-teal-500 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
             />
 
             <div className="flex-1" />
@@ -184,7 +193,7 @@ export default function Events() {
             )}
 
             {/* Results Count */}
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-slate-500 font-medium">
               {events.length} events on this page
             </span>
           </div>

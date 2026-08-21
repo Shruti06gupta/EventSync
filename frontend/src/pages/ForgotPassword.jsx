@@ -35,7 +35,7 @@ export default function ForgotPassword() {
 
       setTimeout(() => {
         navigate('/login')
-      }, 3000)
+      }, 60000)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to send reset link')
     } finally {
@@ -132,7 +132,7 @@ export default function ForgotPassword() {
                       <div>
                         <p className="font-semibold">Reset link sent</p>
                         <p className="mt-1 text-brand-teal-dark">
-                          A password reset link has been sent to <strong>{email}</strong>. Redirecting to Sign In...
+                          If an account exists for <strong>{email}</strong>, reset instructions have been sent.
                         </p>
                       </div>
                     </div>
