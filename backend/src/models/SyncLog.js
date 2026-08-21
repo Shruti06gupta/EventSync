@@ -23,6 +23,23 @@ const syncLogSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // Detailed per-source statistics
+    sourceStats: {
+      devfolio: {
+        fetched: { type: Number, default: 0 },
+        normalized: { type: Number, default: 0 },
+        duplicates: { type: Number, default: 0 },
+        inserted: { type: Number, default: 0 },
+        errors: { type: [String], default: [] }
+      },
+      unstop: {
+        fetched: { type: Number, default: 0 },
+        normalized: { type: Number, default: 0 },
+        duplicates: { type: Number, default: 0 },
+        inserted: { type: Number, default: 0 },
+        errors: { type: [String], default: [] }
+      }
+    }
   },
   {
     timestamps: true,

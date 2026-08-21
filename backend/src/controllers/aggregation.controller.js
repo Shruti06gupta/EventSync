@@ -52,6 +52,7 @@ const getSyncStatus = async (req, res) => {
         duplicatesSkipped: lastSync.duplicatesSkipped,
         errors: lastSync.errors,
         totalEventsAdded: lastSync.devfolioCount + lastSync.unstopCount,
+        sourceStats: lastSync.sourceStats || null,
       },
       nextScheduledSync: nextSync,
       schedule: 'Daily at 9:00 AM IST',
