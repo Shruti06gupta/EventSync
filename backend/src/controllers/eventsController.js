@@ -8,18 +8,17 @@ const getEvents = async (req, res) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 50);
     const skip = (page - 1) * limit;
     const now = new Date();
+    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
     const search = req.query.search?.trim();
     const category = req.query.category?.trim();
     const mode = req.query.mode?.trim();
     const college = req.query.college?.trim();
     const source = req.query.source?.trim().toLowerCase();
 
+    // Updated filter: include events where registration deadline is within last 3 days
     const filter = {
       isVerified: true,
-      $or: [
-        { startDate: { $gte: now } },
-        { registrationDeadline: { $gte: now } }
-      ]
+      registrationDeadline: { $gte: threeDaysAgo }
     };
 
     const andConditions = [];
@@ -67,12 +66,35 @@ const getEvents = async (req, res) => {
       filter.$and = andConditions;
     }
 
-    // Fetch all matching events, sort by user's college first in memory, and then paginate
+    // Fetch all matching events
     const allEvents = await Event.find(filter)
-      .sort({ registrationDeadline: 1, startDate: 1, createdAt: -1 })
       .populate('createdBy', 'name email role college');
 
-    // Sort by user's college first
+    // Sort events: open events first (by deadline ascending), then closed events (by deadline descending)
+    allEvents.sort((a, b) => {
+      const aDeadline = new Date(a.registrationDeadline);
+      const bDeadline = new Date(b.registrationDeadline);
+      const aIsOpen = aDeadline >= now;
+      const bIsOpen = bDeadline >= now;
+
+      // Open events come before closed events
+      if (aIsOpen && !bIsOpen) return -1;
+      if (!aIsOpen && bIsOpen) return 1;
+
+      // Within open events: sort by deadline ascending (soonest deadline first)
+      if (aIsOpen && bIsOpen) {
+        return aDeadline.getTime() - bDeadline.getTime();
+      }
+
+      // Within closed events: sort by deadline descending (newest closed first)
+      if (!aIsOpen && !bIsOpen) {
+        return bDeadline.getTime() - aDeadline.getTime();
+      }
+
+      return 0;
+    });
+
+    // Sort by user's college first (preserve the main sort as much as possible)
     const userCollege = req.user?.college;
     if (userCollege) {
       allEvents.sort((a, b) => {
@@ -80,7 +102,7 @@ const getEvents = async (req, res) => {
         const bMatches = b.college && b.college.trim().toLowerCase() === userCollege.trim().toLowerCase();
         if (aMatches && !bMatches) return -1;
         if (!aMatches && bMatches) return 1;
-        return 0; // Preserve secondary sort order from DB
+        return 0; // Preserve the main open/closed sort order
       });
     }
 

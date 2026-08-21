@@ -194,6 +194,12 @@ export default function Navbar() {
               <NavLink to="/manage" className={navLinkClass}>
                 Manage Events
               </NavLink>
+              <NavLink to="/admin/users" className={navLinkClass}>
+                Users
+              </NavLink>
+              <NavLink to="/admin/reports" className={navLinkClass}>
+                Reports
+              </NavLink>
             </>
           )}
         </nav>
@@ -468,6 +474,12 @@ export default function Navbar() {
                 </NavLink>
                 <NavLink to="/manage" className={mobileNavLinkClass}>
                   Manage Events
+                </NavLink>
+                <NavLink to="/admin/users" className={mobileNavLinkClass}>
+                  Users
+                </NavLink>
+                <NavLink to="/admin/reports" className={mobileNavLinkClass}>
+                  Reports
                 </NavLink>
               </>
             )}

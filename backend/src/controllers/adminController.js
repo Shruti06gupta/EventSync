@@ -300,6 +300,227 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
+const getUsers = async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
+    const skip = (page - 1) * limit;
+    const search = req.query.search?.trim();
+    const role = req.query.role?.trim();
+
+    const filter = {};
+
+    if (role === 'student' || role === 'admin') {
+      filter.role = role;
+    }
+
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { college: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const [users, totalUsers, totalStudents, totalAdmins] = await Promise.all([
+      User.find(filter)
+        .select('name email college role profilePicture createdAt lastLoginAt')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments(),
+      User.countDocuments({ role: 'student' }),
+      User.countDocuments({ role: 'admin' }),
+    ]);
+
+    const activeUsers = users.filter(u => u.lastLoginAt && (Date.now() - new Date(u.lastLoginAt).getTime()) < 30 * 24 * 60 * 60 * 1000).length;
+    const inactiveUsers = users.length - activeUsers;
+
+    return res.status(200).json({
+      message: 'Users fetched successfully',
+      users,
+      pagination: {
+        page,
+        limit,
+        totalUsers,
+        totalPages: Math.ceil(totalUsers / limit),
+        hasNextPage: page * limit < totalUsers,
+        hasPrevPage: page > 1,
+      },
+      summary: {
+        totalUsers,
+        totalStudents,
+        totalAdmins,
+        activeUsers,
+        inactiveUsers,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Failed to fetch users',
+      error: error.message,
+    });
+  }
+};
+
+const getReports = async (req, res) => {
+  try {
+    const range = req.query.range || '7d';
+    const now = new Date();
+    let startDate;
+
+    if (range === '7d') {
+      startDate = new Date(now.getTime() - 7 * MS_DAY);
+    } else if (range === '30d') {
+      startDate = new Date(now.getTime() - 30 * MS_DAY);
+    } else if (range === 'month') {
+      startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    } else {
+      startDate = new Date(now.getTime() - 7 * MS_DAY);
+    }
+
+    const last24h = new Date(now.getTime() - MS_DAY);
+    const todayStart = startOfDayUTC(now);
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const next24h = new Date(now.getTime() + MS_DAY);
+    const next7d = new Date(now.getTime() + 7 * MS_DAY);
+    const threeDaysAgo = new Date(now.getTime() - 3 * MS_DAY);
+
+    const [
+      totalUsers,
+      newUsersToday,
+      newUsersWeek,
+      newUsersMonth,
+      studentsCount,
+      adminsCount,
+      usersForTrend,
+      totalEvents,
+      upcomingEvents,
+      closingWithin24h,
+      closingWithin7d,
+      recentlyClosed,
+      expiredEvents,
+      eventsForTrend,
+      eventsBySourceRaw,
+      eventsByCategoryRaw,
+      totalBookmarksAgg,
+      bookmarkCountsRaw,
+      totalNotifications,
+      notificationsForTrend,
+      syncLogs,
+      lastSync,
+    ] = await Promise.all([
+      User.countDocuments(),
+      User.countDocuments({ createdAt: { $gte: todayStart } }),
+      User.countDocuments({ createdAt: { $gte: startDate } }),
+      User.countDocuments({ createdAt: { $gte: monthStart } }),
+      User.countDocuments({ role: 'student' }),
+      User.countDocuments({ role: 'admin' }),
+      User.find({ createdAt: { $gte: startDate } }).select('createdAt').lean(),
+      Event.countDocuments(),
+      Event.countDocuments({ registrationDeadline: { $gt: now } }),
+      Event.countDocuments({ registrationDeadline: { $gt: now, $lte: next24h } }),
+      Event.countDocuments({ registrationDeadline: { $gt: now, $lte: next7d } }),
+      Event.countDocuments({ registrationDeadline: { $lt: now, $gte: threeDaysAgo } }),
+      Event.countDocuments({ registrationDeadline: { $lt: threeDaysAgo } }),
+      Event.find({ createdAt: { $gte: startDate } }).select('createdAt').lean(),
+      Event.aggregate([
+        { $group: { _id: '$source', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      Event.aggregate([
+        { $group: { _id: '$category', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      User.aggregate([
+        { $project: { bookmarkCount: { $size: { $ifNull: ['$bookmarks', []] } } } },
+        { $group: { _id: null, total: { $sum: '$bookmarkCount' } } },
+      ]),
+      User.aggregate([
+        { $unwind: '$bookmarks' },
+        { $group: { _id: '$bookmarks', count: { $sum: 1 } } },
+      ]),
+      Notification.countDocuments({ createdAt: { $gte: startDate } }),
+      Notification.find({ createdAt: { $gte: startDate } }).select('createdAt').lean(),
+      SyncLog.find({ createdAt: { $gte: startDate } }).sort({ createdAt: -1 }).limit(10).lean(),
+      SyncLog.findOne().sort({ createdAt: -1 }).lean(),
+    ]);
+
+    const totalBookmarks = totalBookmarksAgg[0]?.total || 0;
+    const bookmarkCountMap = new Map(
+      bookmarkCountsRaw.map((entry) => [String(entry._id), entry.count])
+    );
+
+    const eventsByPlatform = eventsBySourceRaw.map((entry) => ({
+      platform: formatSourceLabel(entry._id),
+      source: entry._id || 'other',
+      count: entry.count,
+    }));
+
+    const eventsByCategory = eventsByCategoryRaw.map((entry) => ({
+      category: entry._id || 'Other',
+      count: entry.count,
+    }));
+
+    const syncStats = {
+      totalSyncs: syncLogs.length,
+      successfulSyncs: syncLogs.filter(s => s.status === 'success').length,
+      partialSyncs: syncLogs.filter(s => s.status === 'partial').length,
+      failedSyncs: syncLogs.filter(s => s.status === 'failed').length,
+      lastSync,
+      devfolioTotal: syncLogs.reduce((sum, s) => sum + (s.devfolioCount || 0), 0),
+      unstopTotal: syncLogs.reduce((sum, s) => sum + (s.unstopCount || 0), 0),
+      duplicatesSkipped: syncLogs.reduce((sum, s) => sum + (s.duplicatesSkipped || 0), 0),
+      errors: syncLogs.reduce((sum, s) => sum + (s.errors?.length || 0), 0),
+    };
+
+    return res.status(200).json({
+      userReports: {
+        totalUsers,
+        newUsersToday,
+        newUsersWeek,
+        newUsersMonth,
+        studentsCount,
+        adminsCount,
+        userGrowth: buildDailyTrend(usersForTrend, range === '30d' ? 30 : 7),
+      },
+      eventReports: {
+        totalEvents,
+        upcomingEvents,
+        closingWithin24h,
+        closingWithin7d,
+        recentlyClosed,
+        expiredEvents,
+        eventAdditions: buildDailyTrend(eventsForTrend, range === '30d' ? 30 : 7),
+        eventsByPlatform,
+        eventsByCategory,
+      },
+      engagementReports: {
+        totalBookmarks,
+        totalNotifications,
+        notificationActivity: buildDailyTrend(notificationsForTrend, range === '30d' ? 30 : 7),
+      },
+      syncReports: syncStats,
+      deadlineReports: {
+        closingWithin24h,
+        closingWithin7d,
+        recentlyClosed,
+        expiredEvents,
+      },
+      range,
+      generatedAt: now.toISOString(),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Failed to fetch reports',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getDashboardStats,
+  getUsers,
+  getReports,
 };
