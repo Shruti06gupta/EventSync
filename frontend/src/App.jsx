@@ -11,6 +11,8 @@ import EventDetails from './pages/EventDetails'
 import Bookmarks from './pages/Bookmarks'
 import ManageEvents from './pages/ManageEvents'
 import AdminDashboard from './pages/AdminDashboard'
+import AdminUsers from './pages/AdminUsers'
+import AdminReports from './pages/AdminReports'
 import { AuthProvider } from './context/AuthContext'
 import { NotificationsProvider } from './context/NotificationsContext'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -36,6 +38,8 @@ export default function App() {
             <Route path="/bookmarks" element={<ProtectedRoute><Bookmarks /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />
             <Route path="/manage" element={<ProtectedRoute><AdminRoute><ManageEvents /></AdminRoute></ProtectedRoute>} />
+            <Route path="/admin/users" element={<ProtectedRoute><AdminRoute><AdminUsers /></AdminRoute></ProtectedRoute>} />
+            <Route path="/admin/reports" element={<ProtectedRoute><AdminRoute><AdminReports /></AdminRoute></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

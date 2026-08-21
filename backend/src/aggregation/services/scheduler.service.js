@@ -15,23 +15,23 @@ const initScheduler = () => {
   });
   
   // Expired events cleanup: run every hour at minute 0
-  // Commented out - automatic deletion of expired events may not be desired
-  // cron.schedule('0 * * * *', async () => {
-  //   console.log('[Scheduler] Running expired events cleanup...');
-  //   try {
-  //     const now = new Date();
-  //     // Delete events that have already ended or whose registration deadline has passed
-  //     const result = await Event.deleteMany({
-  //       $or: [
-  //         { endDate: { $lt: now } },
-  //         { registrationDeadline: { $lt: now } }
-  //       ]
-  //     });
-  //     console.log(`[Scheduler] Cleanup complete. Deleted ${result.deletedCount} expired events.`);
-  //   } catch (error) {
-  //     console.error('[Scheduler] Cleanup failed:', error.message);
-  //   }
-  // });
+  // Remove events closed for more than 3 days
+  cron.schedule('0 * * * *', async () => {
+    console.log('[Scheduler] Running expired events cleanup...');
+    try {
+      const now = new Date();
+      const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+      
+      // Delete events whose registration deadline has passed by more than 3 days
+      const result = await Event.deleteMany({
+        registrationDeadline: { $lt: threeDaysAgo }
+      });
+      
+      console.log(`[Scheduler] Cleanup complete. Deleted ${result.deletedCount} events closed for more than 3 days.`);
+    } catch (error) {
+      console.error('[Scheduler] Cleanup failed:', error.message);
+    }
+  });
 
   console.log('Schedulers initialized.');
 };
