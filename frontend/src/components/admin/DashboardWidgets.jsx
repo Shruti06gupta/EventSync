@@ -44,26 +44,67 @@ export function SectionCard({ title, subtitle, children, action }) {
 
 export function SimpleBarChart({ data, barColor = 'bg-brand-teal' }) {
   if (!data?.length) {
-    return <p className="text-sm text-slate-500">No trend data available.</p>
+    return (
+      <div className="flex h-64 items-center justify-center rounded-2xl bg-slate-50">
+        <p className="text-sm text-slate-500">No trend data available.</p>
+      </div>
+    )
   }
 
   const max = Math.max(...data.map((item) => item.count), 1)
+  const hasData = data.some(item => item.count > 0)
+
+  if (!hasData) {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center rounded-2xl bg-slate-50">
+        <p className="text-sm font-medium text-slate-700">No activity in the last 7 days</p>
+        <p className="mt-1 text-xs text-slate-500">Chart will appear when data is available</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="flex h-48 items-end gap-2">
-      {data.map((item) => (
-        <div key={item.label} className="flex flex-1 flex-col items-center gap-2">
-          <span className="text-xs font-semibold text-slate-600">{item.count}</span>
-          <div className="flex w-full items-end justify-center" style={{ height: '140px' }}>
-            <div
-              className={`w-full max-w-[2.5rem] rounded-t-xl ${barColor} transition-all`}
-              style={{ height: `${Math.max((item.count / max) * 100, item.count > 0 ? 8 : 0)}%` }}
+    <div className="h-64 w-full relative">
+      {/* Grid lines */}
+      <div className="absolute inset-0 flex flex-col justify-between pointer-events-none px-1 pb-8">
+        <div className="border-t border-slate-100 w-full" />
+        <div className="border-t border-slate-100 w-full" />
+        <div className="border-t border-slate-100 w-full" />
+        <div className="border-t border-slate-100 w-full" />
+      </div>
+      
+      <div className="flex h-full items-end gap-2 sm:gap-3 border-b border-slate-200 pb-2 px-1 relative z-10">
+        {data.map((item) => {
+          const barHeight = max > 0 ? (item.count / max) * 100 : 0
+          const displayHeight = item.count > 0 ? Math.max(barHeight, 4) : 0
+          
+          return (
+            <div 
+              key={item.label} 
+              className="group flex flex-1 flex-col items-center gap-2 min-w-0"
               title={`${item.label}: ${item.count}`}
-            />
-          </div>
-          <span className="text-[11px] font-medium text-slate-500">{item.label}</span>
-        </div>
-      ))}
+            >
+              <div className="relative w-full flex flex-col items-center">
+                <span className="mb-1 text-xs font-semibold text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20">
+                  {item.count}
+                </span>
+                <div className="flex w-full items-end justify-center" style={{ height: '180px' }}>
+                  <div
+                    className={`w-full max-w-[2rem] sm:max-w-[2.5rem] rounded-t-lg ${barColor} transition-all duration-300 hover:opacity-80 hover:shadow-md relative z-10`}
+                    style={{ 
+                      height: `${displayHeight}%`,
+                      minHeight: item.count > 0 ? '8px' : '0px'
+                    }}
+                  />
+                </div>
+              </div>
+              <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 truncate w-full text-center relative z-10">
+                {item.label}
+              </span>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

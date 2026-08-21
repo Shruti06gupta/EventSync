@@ -116,6 +116,7 @@ export default function AdminDashboard() {
     userGrowth = {},
     engagement = {},
     eventCreationTrend = [],
+    notificationActivity = [],
     recentActivity = [],
     closingEvents = [],
     adminAlerts = [],
@@ -195,10 +196,10 @@ export default function AdminDashboard() {
           accent="amber"
         />
         <StatCard
-          title="Registrations"
-          value="External"
-          subtitle="Not tracked in EventSync"
-          icon="🔗"
+          title="Notifications"
+          value={formatNumber(engagement.totalNotifications)}
+          subtitle="System notifications sent"
+          icon="�"
           accent="indigo"
         />
       </div>
@@ -309,8 +310,8 @@ export default function AdminDashboard() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <SectionCard title="User Growth" subtitle="Registration trend over the last 7 days">
-          <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <SectionCard title="User Growth" subtitle="New user signups over the last 7 days">
+          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl bg-slate-50 p-3">
               <p className="text-xs text-slate-500">Today</p>
               <p className="text-lg font-bold text-slate-900">{formatNumber(userGrowth.newUsersToday)}</p>
@@ -328,16 +329,29 @@ export default function AdminDashboard() {
               <p className="text-lg font-bold text-slate-900">{formatNumber(userGrowth.totalUsers)}</p>
             </div>
           </div>
-          <SimpleBarChart data={userGrowth.trend7d} barColor="bg-brand-teal" />
+          <SimpleBarChart data={userGrowth.trend7d} barColor="bg-indigo-500" />
         </SectionCard>
 
-        <SectionCard title="Event Additions" subtitle="New events added over the last 7 days">
-          <p className="mb-4 text-sm text-slate-500">{engagement.registrationsNote}</p>
-          <SimpleBarChart data={eventCreationTrend} barColor="bg-brand-cyan" />
-          <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm font-semibold text-slate-700">Registration analytics unavailable</p>
+        <SectionCard title="Event Additions" subtitle="New events added to the system over the last 7 days">
+          <SimpleBarChart data={eventCreationTrend} barColor="bg-teal-500" />
+          <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm font-semibold text-slate-700">About event data</p>
             <p className="mt-1 text-sm text-slate-500">
-              EventSync stores {formatNumber(engagement.totalBookmarks)} bookmarks as in-app engagement because registrations happen on external platforms.
+              Events are aggregated from external platforms (Devfolio, Unstop) and added manually by admins. 
+              Registration tracking happens on external platforms.
+            </p>
+          </div>
+        </SectionCard>
+      </div>
+
+      <div className="mt-6">
+        <SectionCard title="Notification Activity" subtitle={`System notifications sent over the last 7 days (Total: ${formatNumber(engagement.totalNotifications)})`}>
+          <SimpleBarChart data={notificationActivity} barColor="bg-purple-500" />
+          <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm font-semibold text-slate-700">Engagement metrics</p>
+            <p className="mt-1 text-sm text-slate-500">
+              EventSync tracks {formatNumber(engagement.totalBookmarks)} bookmarks and {formatNumber(engagement.totalNotifications)} notifications as in-app engagement. 
+              Registrations happen on external platforms and are not stored locally.
             </p>
           </div>
         </SectionCard>
