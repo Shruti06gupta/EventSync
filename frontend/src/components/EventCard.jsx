@@ -68,6 +68,7 @@ export default function EventCard({
   onBookmarkToggle,
   showFullActions = true,
   className = '',
+  distanceKm,
 }) {
   if (!event) return null
 
@@ -142,6 +143,13 @@ export default function EventCard({
 
         {/* Meta Info */}
         <div className="mt-4 space-y-2 border-t border-slate-100 pt-3 text-xs text-slate-600">
+          {distanceKm !== undefined && distanceKm !== null && Number.isFinite(Number(distanceKm)) && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium text-slate-500">Distance:</span>
+              <span className="font-semibold text-teal-700">📍 {Number(distanceKm).toFixed(1)} km away</span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between gap-2">
             <span className="font-medium text-slate-500">Organizer:</span>
             <span className="font-semibold text-slate-800 truncate max-w-[65%] text-right">
