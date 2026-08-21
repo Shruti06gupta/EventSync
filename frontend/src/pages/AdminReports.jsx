@@ -14,6 +14,8 @@ export default function AdminReports() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [range, setRange] = useState('7d')
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
 
   useEffect(() => {
     const loadReports = async () => {
@@ -62,16 +64,43 @@ export default function AdminReports() {
 
   const { userReports, eventReports, engagementReports, syncReports, deadlineReports } = data
 
+  const exportReport = async () => {
+    try {
+      setExporting(true)
+      setExportError('')
+      
+      const response = await api.get('/admin/reports/export', { 
+        params: { range },
+        responseType: 'blob'
+      })
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `EventSync_Report_${new Date().toISOString().split('T')[0]}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      setExportError('Unable to generate report. Please try again.')
+      console.error('Export error:', err)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-brand-bg pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8">
         {/* Page Header */}
-        <div className="mb-8 rounded-3xl bg-gradient-to-r from-brand-indigo to-brand-indigo-dark p-8 text-white shadow-soft-xl">
+        <div className="mb-8 rounded-3xl bg-gradient-to-r from-teal-700 to-emerald-600 p-8 text-white shadow-soft-xl">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-indigo-200">Analytics</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-teal-100">Analytics</p>
               <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Reports</h1>
-              <p className="mt-3 max-w-2xl text-sm text-indigo-100 sm:text-base">
+              <p className="mt-3 max-w-2xl text-sm text-teal-100 sm:text-base">
                 Detailed analytics and insights about EventSync activity.
               </p>
             </div>
@@ -85,9 +114,22 @@ export default function AdminReports() {
                 <option value="30d" className="text-slate-900">Last 30 Days</option>
                 <option value="month" className="text-slate-900">This Month</option>
               </select>
+              <button
+                onClick={exportReport}
+                disabled={exporting}
+                className="rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-brand-teal transition hover:bg-teal-50 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {exporting ? 'Generating Report...' : 'Export Report'}
+              </button>
             </div>
           </div>
         </div>
+
+        {exportError && (
+          <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">
+            {exportError}
+          </div>
+        )}
 
         {/* User Reports */}
         <SectionCard title="User Reports" subtitle="User growth and registration metrics">

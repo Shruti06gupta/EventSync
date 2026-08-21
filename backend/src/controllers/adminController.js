@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Event = require('../models/Event');
 const SyncLog = require('../models/SyncLog');
 const Notification = require('../models/Notification');
+const PDFDocument = require('pdfkit');
 
 const MS_DAY = 24 * 60 * 60 * 1000;
 
@@ -519,8 +520,427 @@ const getReports = async (req, res) => {
   }
 };
 
+const exportReports = async (req, res) => {
+  try {
+    const range = req.query.range || '7d';
+    
+    // Get the same data as getReports
+    const reportsData = await getReportsData(range);
+    
+    // Create PDF document
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    
+    // Set response headers
+    const filename = `EventSync_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    // Pipe PDF to response
+    doc.pipe(res);
+    
+    // Helper function for drawing section headers
+    const drawSectionHeader = (title, y) => {
+      doc.fillColor('#0d9488')
+         .fontSize(14)
+         .font('Helvetica-Bold')
+         .text(title, 50, y);
+      doc.moveTo(50, y + 20)
+         .lineTo(545, y + 20)
+         .strokeColor('#0d9488')
+         .lineWidth(1)
+         .stroke();
+      return y + 40;
+    };
+    
+    // Helper function for drawing stat boxes
+    const drawStatBox = (label, value, x, y) => {
+      doc.rect(x, y, 120, 50)
+         .fillColor('#f0fdf4')
+         .fill()
+         .strokeColor('#0d9488')
+         .lineWidth(0.5)
+         .stroke();
+      
+      doc.fillColor('#0f766e')
+         .fontSize(10)
+         .font('Helvetica')
+         .text(label, x + 8, y + 10);
+      
+      doc.fillColor('#0d9488')
+         .fontSize(18)
+         .font('Helvetica-Bold')
+         .text(String(value), x + 8, y + 25);
+    };
+    
+    // Helper function for drawing simple bar chart
+    const drawBarChart = (data, title, startY) => {
+      let y = drawSectionHeader(title, startY);
+      
+      const chartWidth = 495;
+      const chartHeight = 100;
+      const barWidth = (chartWidth / data.length) - 10;
+      const maxCount = Math.max(...data.map(d => d.count)) || 1;
+      
+      // Draw chart background
+      doc.rect(50, y, chartWidth, chartHeight)
+         .fillColor('#ffffff')
+         .fill()
+         .strokeColor('#e2e8f0')
+         .lineWidth(1)
+         .stroke();
+      
+      // Draw bars
+      data.forEach((item, index) => {
+        const barHeight = (item.count / maxCount) * (chartHeight - 20);
+        const x = 50 + index * (barWidth + 10) + 5;
+        const barY = y + chartHeight - barHeight - 10;
+        
+        doc.rect(x, barY, barWidth, barHeight)
+           .fillColor('#0d9488')
+           .fill();
+        
+        // Draw label
+        doc.fillColor('#64748b')
+           .fontSize(8)
+           .font('Helvetica')
+           .text(item.label, x, y + chartHeight - 5, { width: barWidth, align: 'center' });
+        
+        // Draw value
+        doc.fillColor('#0f766e')
+           .fontSize(8)
+           .font('Helvetica-Bold')
+           .text(String(item.count), x, barY - 12, { width: barWidth, align: 'center' });
+      });
+      
+      return y + chartHeight + 20;
+    };
+    
+    // Helper function for drawing horizontal bars
+    const drawHorizontalBars = (items, title, startY) => {
+      let y = drawSectionHeader(title, startY);
+      
+      const chartWidth = 400;
+      const barHeight = 20;
+      const maxCount = Math.max(...items.map(i => i.count)) || 1;
+      
+      items.forEach((item, index) => {
+        const barWidth = (item.count / maxCount) * chartWidth;
+        const labelY = y + index * 30;
+        
+        // Draw label
+        doc.fillColor('#334155')
+           .fontSize(10)
+           .font('Helvetica')
+           .text(item.platform || item.source, 50, labelY, { width: 100 });
+        
+        // Draw bar background
+        doc.rect(160, labelY, chartWidth, barHeight)
+           .fillColor('#f1f5f9')
+           .fill();
+        
+        // Draw bar
+        doc.rect(160, labelY, barWidth, barHeight)
+           .fillColor('#0d9488')
+           .fill();
+        
+        // Draw count
+        doc.fillColor('#0f766e')
+           .fontSize(10)
+           .font('Helvetica-Bold')
+           .text(String(item.count), 160 + chartWidth + 10, labelY);
+      });
+      
+      return y + items.length * 30 + 20;
+    };
+    
+    // PAGE 1: Cover and Executive Summary
+    doc.fillColor('#0d9488')
+       .fontSize(28)
+       .font('Helvetica-Bold')
+       .text('EventSync', 50, 80);
+    
+    doc.fillColor('#0f766e')
+       .fontSize(18)
+       .text('Admin Analytics Report', 50, 120);
+    
+    doc.fillColor('#64748b')
+       .fontSize(10)
+       .font('Helvetica')
+       .text(`Generated: ${new Date().toLocaleString('en-IN')}`, 50, 150);
+    
+    const rangeLabel = range === '7d' ? 'Last 7 Days' : range === '30d' ? 'Last 30 Days' : 'This Month';
+    doc.text(`Reporting Period: ${rangeLabel}`, 50, 165);
+    
+    let y = drawSectionHeader('Executive Summary', 200);
+    
+    // Executive summary stats
+    drawStatBox('Total Users', reportsData.userReports.totalUsers, 50, y);
+    drawStatBox('Total Events', reportsData.eventReports.totalEvents, 180, y);
+    drawStatBox('Total Bookmarks', reportsData.engagementReports.totalBookmarks, 310, y);
+    drawStatBox('Total Notifications', reportsData.engagementReports.totalNotifications, 440, y);
+    
+    y += 70;
+    
+    drawStatBox('Sync Success Rate', 
+      reportsData.syncReports.totalSyncs > 0 
+        ? Math.round((reportsData.syncReports.successfulSyncs / reportsData.syncReports.totalSyncs) * 100) + '%'
+        : 'N/A',
+      50, y);
+    
+    y += 80;
+    
+    // PAGE 2: User Analytics
+    doc.addPage();
+    y = drawSectionHeader('User Analytics', 50);
+    
+    drawStatBox('Total Users', reportsData.userReports.totalUsers, 50, y);
+    drawStatBox('Students', reportsData.userReports.studentsCount, 180, y);
+    drawStatBox('Admins', reportsData.userReports.adminsCount, 310, y);
+    drawStatBox('New Users', reportsData.userReports.newUsersWeek, 440, y);
+    
+    y += 70;
+    
+    y = drawBarChart(reportsData.userReports.userGrowth, 'User Growth Over Time', y);
+    
+    // PAGE 3: Event Analytics
+    doc.addPage();
+    y = drawSectionHeader('Event Analytics', 50);
+    
+    drawStatBox('Total Events', reportsData.eventReports.totalEvents, 50, y);
+    drawStatBox('Upcoming', reportsData.eventReports.upcomingEvents, 180, y);
+    drawStatBox('Closing Soon', reportsData.eventReports.closingWithin7d, 310, y);
+    drawStatBox('Expired', reportsData.eventReports.expiredEvents, 440, y);
+    
+    y += 70;
+    
+    y = drawBarChart(reportsData.eventReports.eventAdditions, 'Event Additions Over Time', y);
+    
+    if (reportsData.eventReports.eventsByPlatform && reportsData.eventReports.eventsByPlatform.length > 0) {
+      y = drawHorizontalBars(reportsData.eventReports.eventsByPlatform, 'Events by Platform', y);
+    }
+    
+    if (reportsData.eventReports.eventsByCategory && reportsData.eventReports.eventsByCategory.length > 0) {
+      y = drawHorizontalBars(
+        reportsData.eventReports.eventsByCategory.map(cat => ({ platform: cat.category, source: cat.category, count: cat.count })),
+        'Events by Category',
+        y
+      );
+    }
+    
+    // PAGE 4: Engagement
+    doc.addPage();
+    y = drawSectionHeader('Engagement Metrics', 50);
+    
+    drawStatBox('Total Bookmarks', reportsData.engagementReports.totalBookmarks, 50, y);
+    drawStatBox('Total Notifications', reportsData.engagementReports.totalNotifications, 180, y);
+    
+    y += 70;
+    
+    y = drawBarChart(reportsData.engagementReports.notificationActivity, 'Notification Activity', y);
+    
+    doc.fillColor('#64748b')
+       .fontSize(9)
+       .font('Helvetica')
+       .text('Note: EventSync tracks bookmarks and notifications as in-app engagement metrics. Event registrations happen on external platforms.', 50, y, { width: 495 });
+    
+    // PAGE 5: Sync & Deadlines
+    doc.addPage();
+    y = drawSectionHeader('Sync Reports', 50);
+    
+    drawStatBox('Total Syncs', reportsData.syncReports.totalSyncs, 50, y);
+    drawStatBox('Successful', reportsData.syncReports.successfulSyncs, 180, y);
+    drawStatBox('Partial', reportsData.syncReports.partialSyncs, 310, y);
+    drawStatBox('Failed', reportsData.syncReports.failedSyncs, 440, y);
+    
+    y += 70;
+    
+    drawStatBox('Devfolio Events', reportsData.syncReports.devfolioTotal, 50, y);
+    drawStatBox('Unstop Events', reportsData.syncReports.unstopTotal, 180, y);
+    drawStatBox('Duplicates Skipped', reportsData.syncReports.duplicatesSkipped, 310, y);
+    drawStatBox('Sync Errors', reportsData.syncReports.errors, 440, y);
+    
+    y += 70;
+    
+    if (reportsData.syncReports.lastSync) {
+      doc.fillColor('#334155')
+         .fontSize(10)
+         .font('Helvetica-Bold')
+         .text('Last Sync:', 50, y);
+      
+      doc.fillColor('#64748b')
+         .fontSize(9)
+         .font('Helvetica')
+         .text(new Date(reportsData.syncReports.lastSync.createdAt).toLocaleString('en-IN', {
+           dateStyle: 'medium',
+           timeStyle: 'short',
+         }), 50, y + 15);
+      
+      doc.text(`Status: ${reportsData.syncReports.lastSync.status}`, 50, y + 30);
+      
+      y += 50;
+    }
+    
+    y = drawSectionHeader('Deadline Reports', y);
+    
+    drawStatBox('Closing (24h)', reportsData.deadlineReports.closingWithin24h, 50, y);
+    drawStatBox('Closing (7d)', reportsData.deadlineReports.closingWithin7d, 180, y);
+    drawStatBox('Recently Closed', reportsData.deadlineReports.recentlyClosed, 310, y);
+    drawStatBox('Expired', reportsData.deadlineReports.expiredEvents, 440, y);
+    
+    // Finalize PDF
+    doc.end();
+  } catch (error) {
+    console.error('[Export Reports] Error:', error);
+    return res.status(500).json({
+      message: 'Failed to generate report',
+      error: error.message,
+    });
+  }
+};
+
+// Helper function to get reports data (reused from getReports)
+const getReportsData = async (range) => {
+  const now = new Date();
+  let startDate;
+
+  if (range === '7d') {
+    startDate = new Date(now.getTime() - 7 * MS_DAY);
+  } else if (range === '30d') {
+    startDate = new Date(now.getTime() - 30 * MS_DAY);
+  } else if (range === 'month') {
+    startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  } else {
+    startDate = new Date(now.getTime() - 7 * MS_DAY);
+  }
+
+  const last24h = new Date(now.getTime() - MS_DAY);
+  const todayStart = startOfDayUTC(now);
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const next24h = new Date(now.getTime() + MS_DAY);
+  const next7d = new Date(now.getTime() + 7 * MS_DAY);
+  const threeDaysAgo = new Date(now.getTime() - 3 * MS_DAY);
+
+  const [
+    totalUsers,
+    newUsersToday,
+    newUsersWeek,
+    newUsersMonth,
+    studentsCount,
+    adminsCount,
+    usersForTrend,
+    totalEvents,
+    upcomingEvents,
+    closingWithin24h,
+    closingWithin7d,
+    recentlyClosed,
+    expiredEvents,
+    eventsForTrend,
+    eventsByPlatform,
+    eventsByCategory,
+    totalBookmarks,
+    notificationsForTrend,
+    totalNotifications,
+    syncLogs,
+  ] = await Promise.all([
+    User.countDocuments(),
+    User.countDocuments({ createdAt: { $gte: todayStart } }),
+    User.countDocuments({ createdAt: { $gte: startDate } }),
+    User.countDocuments({ createdAt: { $gte: monthStart } }),
+    User.countDocuments({ role: 'student' }),
+    User.countDocuments({ role: 'admin' }),
+    User.find({ createdAt: { $gte: startDate } }).select('createdAt').lean(),
+    Event.countDocuments({ isVerified: true }),
+    Event.countDocuments({ isVerified: true, registrationDeadline: { $gte: now } }),
+    Event.countDocuments({ isVerified: true, registrationDeadline: { $gte: now, $lt: next24h } }),
+    Event.countDocuments({ isVerified: true, registrationDeadline: { $gte: now, $lt: next7d } }),
+    Event.countDocuments({ isVerified: true, registrationDeadline: { $lt: now, $gte: threeDaysAgo } }),
+    Event.countDocuments({ isVerified: true, registrationDeadline: { $lt: threeDaysAgo } }),
+    Event.find({ isVerified: true, createdAt: { $gte: startDate } }).select('createdAt').lean(),
+    Event.aggregate([
+      { $match: { isVerified: true } },
+      { $group: { _id: '$source', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]),
+    Event.aggregate([
+      { $match: { isVerified: true } },
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]),
+    User.aggregate([
+      { $unwind: '$bookmarks' },
+      { $count: 'total' },
+    ]).then(result => result[0]?.total || 0),
+    Notification.find({ createdAt: { $gte: startDate } }).select('createdAt').lean(),
+    Notification.countDocuments(),
+    SyncLog.find().sort({ createdAt: -1 }).limit(10).lean(),
+  ]);
+
+  const eventsByPlatformFormatted = eventsByPlatform.map(item => ({
+    platform: formatSourceLabel(item._id),
+    source: item._id,
+    count: item.count,
+  }));
+
+  const eventsByCategoryFormatted = eventsByCategory.map(item => ({
+    category: item._id,
+    count: item.count,
+  }));
+
+  const lastSync = syncLogs[0] || null;
+
+  const syncStats = {
+    totalSyncs: syncLogs.length,
+    successfulSyncs: syncLogs.filter(s => s.status === 'success').length,
+    partialSyncs: syncLogs.filter(s => s.status === 'partial').length,
+    failedSyncs: syncLogs.filter(s => s.status === 'failed').length,
+    lastSync,
+    devfolioTotal: syncLogs.reduce((sum, s) => sum + (s.devfolioCount || 0), 0),
+    unstopTotal: syncLogs.reduce((sum, s) => sum + (s.unstopCount || 0), 0),
+    duplicatesSkipped: syncLogs.reduce((sum, s) => sum + (s.duplicatesSkipped || 0), 0),
+    errors: syncLogs.reduce((sum, s) => sum + (s.errors?.length || 0), 0),
+  };
+
+  return {
+    userReports: {
+      totalUsers,
+      newUsersToday,
+      newUsersWeek,
+      newUsersMonth,
+      studentsCount,
+      adminsCount,
+      userGrowth: buildDailyTrend(usersForTrend, range === '30d' ? 30 : 7),
+    },
+    eventReports: {
+      totalEvents,
+      upcomingEvents,
+      closingWithin24h,
+      closingWithin7d,
+      recentlyClosed,
+      expiredEvents,
+      eventAdditions: buildDailyTrend(eventsForTrend, range === '30d' ? 30 : 7),
+      eventsByPlatform: eventsByPlatformFormatted,
+      eventsByCategory: eventsByCategoryFormatted,
+    },
+    engagementReports: {
+      totalBookmarks,
+      totalNotifications,
+      notificationActivity: buildDailyTrend(notificationsForTrend, range === '30d' ? 30 : 7),
+    },
+    syncReports: syncStats,
+    deadlineReports: {
+      closingWithin24h,
+      closingWithin7d,
+      recentlyClosed,
+      expiredEvents,
+    },
+    range,
+    generatedAt: now.toISOString(),
+  };
+};
+
 module.exports = {
   getDashboardStats,
   getUsers,
   getReports,
+  exportReports,
 };

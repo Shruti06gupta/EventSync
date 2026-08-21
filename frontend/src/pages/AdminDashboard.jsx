@@ -133,12 +133,12 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-brand-bg pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8">
         {/* Page Header */}
-        <div className="mb-8 rounded-3xl bg-gradient-to-r from-brand-indigo to-brand-indigo-dark p-8 text-white shadow-soft-xl">
+        <div className="mb-8 rounded-3xl bg-gradient-to-r from-teal-700 to-emerald-600 p-8 text-white shadow-soft-xl">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-indigo-200">Admin Dashboard</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-teal-100">Admin Dashboard</p>
               <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Admin System Overview</h1>
-              <p className="mt-3 max-w-2xl text-sm text-indigo-100 sm:text-base">
+              <p className="mt-3 max-w-2xl text-sm text-teal-100 sm:text-base">
                 Monitor platform health, user growth, event distribution, and events requiring attention.
               </p>
             </div>
@@ -190,9 +190,9 @@ export default function AdminDashboard() {
         />
         <StatCard
           title="Notifications"
-          value={formatNumber(engagement.totalNotifications)}
+          value={formatNumber(kpis.totalNotifications || 0)}
           subtitle="System notifications sent"
-          icon="�"
+          icon="🔔"
           accent="indigo"
         />
       </div>
