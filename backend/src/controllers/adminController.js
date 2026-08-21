@@ -212,10 +212,16 @@ const getDashboardStats = async (req, res) => {
         message: 'Latest event platform sync failed',
       });
     } else if (lastSync?.status === 'partial') {
+      const sourceErrors = lastSync.sourceStats ? 
+        Object.entries(lastSync.sourceStats)
+          .filter(([_, stats]) => stats.errors && stats.errors.length > 0)
+          .map(([source, _]) => source.charAt(0).toUpperCase() + source.slice(1))
+          .join(', ') : 'Some sources';
+      
       adminAlerts.push({
         id: 'sync-partial',
         level: 'warning',
-        message: 'Latest event platform sync completed with warnings',
+        message: `Latest event platform sync completed with warnings (${sourceErrors})`,
       });
     }
 

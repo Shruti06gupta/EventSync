@@ -2,39 +2,55 @@ const axios = require('axios');
 const { cleanText } = require('../utils/textCleaner');
 
 /**
- * Fetch events from Unstop
+ * Fetch events from Unstop with proper pagination
  * @returns {Promise<Array>} Array of parsed events
  */
 const fetchUnstopEvents = async () => {
-  console.log('Starting Unstop aggregation...');
+  console.log('[Unstop] Starting event aggregation...');
   const events = [];
-  const MAX_PAGES = 3;
+  let page = 1;
+  const MAX_PAGES = 20; // Safety limit to prevent infinite loops
+  const PER_PAGE = 15;
+  let consecutiveEmptyPages = 0;
+  const MAX_EMPTY_PAGES = 2; // Stop after 2 consecutive empty pages
 
   try {
-    for (let page = 1; page <= MAX_PAGES; page++) {
-      const url = `https://unstop.com/api/public/opportunity/search-result?opportunity=hackathons&page=${page}&per_page=15`;
+    while (page <= MAX_PAGES) {
+      console.log(`[Unstop] Fetching page ${page}...`);
+      
+      const url = `https://unstop.com/api/public/opportunity/search-result?opportunity=hackathons&page=${page}&per_page=${PER_PAGE}`;
+      
       const response = await axios.get(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
           'Accept': 'application/json, text/plain, */*'
         },
-        timeout: 10000
+        timeout: 15000
       });
 
-      console.log('Page fetched successfully');
-
       if (!response.data || !response.data.data || !response.data.data.data) {
-        console.error('Unstop API response missing expected data structure.');
+        console.error('[Unstop] API response missing expected data structure.');
         break;
       }
 
       const items = response.data.data.data;
-      console.log(`Number of cards found: ${items.length}`);
+      const lastPage = response.data.data.last_page || MAX_PAGES;
+      
+      console.log(`[Unstop] Page ${page}: ${items.length} events found (Last page: ${lastPage})`);
 
       if (items.length === 0) {
-        break;
+        consecutiveEmptyPages++;
+        console.log(`[Unstop] Page ${page} returned no events (consecutive empty pages: ${consecutiveEmptyPages})`);
+        
+        if (consecutiveEmptyPages >= MAX_EMPTY_PAGES) {
+          console.log('[Unstop] Stopping due to consecutive empty pages');
+          break;
+        }
+        page++;
+        continue;
       }
 
+      consecutiveEmptyPages = 0; // Reset counter on successful page
       let extractedCount = 0;
 
       for (const item of items) {
@@ -101,14 +117,21 @@ const fetchUnstopEvents = async () => {
         }
       }
 
-      console.log(`Number of events extracted: ${extractedCount}`);
+      console.log(`[Unstop] Page ${page}: ${extractedCount} events extracted`);
 
-      if (page >= response.data.data.last_page) {
-        break; // Reached the last page
+      // Check if we've reached the last page
+      if (page >= lastPage) {
+        console.log(`[Unstop] Reached last page (${lastPage})`);
+        break;
       }
+
+      page++;
     }
+
+    console.log(`[Unstop] Total events fetched: ${events.length}`);
   } catch (error) {
-    console.error('Error fetching from Unstop:', error.message);
+    console.error('[Unstop] Error fetching events:', error.message);
+    throw new Error(`Unstop aggregation failed: ${error.message}`);
   }
 
   return events;
