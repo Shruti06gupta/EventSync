@@ -21,6 +21,7 @@ export default function ManageEvents() {
   const [editingEventId, setEditingEventId] = useState(null)
   const [syncing, setSyncing] = useState(false)
   const [syncReport, setSyncReport] = useState(null)
+  const [syncStatus, setSyncStatus] = useState(null)
 
   // Form State
   const [formData, setFormData] = useState({
@@ -55,6 +56,15 @@ export default function ManageEvents() {
     }
   }
 
+  const loadSyncStatus = async () => {
+    try {
+      const res = await api.get('/aggregation/status')
+      setSyncStatus(res.data)
+    } catch (err) {
+      console.error('Failed to load sync status', err)
+    }
+  }
+
   const handleSync = async () => {
     try {
       setSyncing(true)
@@ -62,6 +72,7 @@ export default function ManageEvents() {
       const res = await api.post('/aggregation/sync')
       setSyncReport(res.data.report)
       loadMyEvents()
+      loadSyncStatus()
     } catch (err) {
       setErrorMessage(err.response?.data?.message || 'Sync failed. Please try again.')
     } finally {
@@ -71,6 +82,7 @@ export default function ManageEvents() {
 
   useEffect(() => {
     loadMyEvents()
+    loadSyncStatus()
   }, [user])
 
   const getLinkType = (url) => {
@@ -274,6 +286,43 @@ export default function ManageEvents() {
               <div className="bg-white/10 rounded-xl p-3">
                 <p className="text-xs text-teal-100 uppercase font-semibold">Status</p>
                 <p className="text-lg font-bold text-white mt-1 capitalize">{syncReport.status}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {syncStatus && syncStatus.hasSyncHistory && (
+          <div className="mt-4 rounded-2xl bg-white/5 backdrop-blur-sm p-4 border border-white/10 text-teal-100">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs uppercase tracking-wider text-teal-200">Last Sync:</span>
+                  <span className="text-sm font-medium">
+                    {new Date(syncStatus.lastSync.timestamp).toLocaleString('en-IN', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short'
+                    })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs uppercase tracking-wider text-teal-200">Status:</span>
+                  <span className={`text-sm font-semibold ${
+                    syncStatus.lastSync.status === 'success' ? 'text-emerald-300' :
+                    syncStatus.lastSync.status === 'partial' ? 'text-amber-300' :
+                    'text-rose-300'
+                  }`}>
+                    ● {syncStatus.lastSync.status.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-teal-200">
+                <span>Next auto-sync:</span>
+                <span className="font-medium text-teal-100">
+                  {new Date(syncStatus.nextScheduledSync).toLocaleString('en-IN', {
+                    dateStyle: 'short',
+                    timeStyle: 'short'
+                  })}
+                </span>
               </div>
             </div>
           </div>

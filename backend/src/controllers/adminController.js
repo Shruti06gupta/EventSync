@@ -2,12 +2,13 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const Event = require('../models/Event');
 const SyncLog = require('../models/SyncLog');
+const Notification = require('../models/Notification');
 
 const MS_DAY = 24 * 60 * 60 * 1000;
 
-const startOfDay = (date) => {
+const startOfDayUTC = (date) => {
   const value = new Date(date);
-  value.setHours(0, 0, 0, 0);
+  value.setUTCHours(0, 0, 0, 0);
   return value;
 };
 
@@ -20,13 +21,13 @@ const formatSourceLabel = (source) => {
 };
 
 const buildDailyTrend = (records, days = 7) => {
-  const today = startOfDay(new Date());
+  const today = startOfDayUTC(new Date());
   const buckets = [];
 
   for (let index = days - 1; index >= 0; index -= 1) {
     const dayStart = new Date(today.getTime() - index * MS_DAY);
     const dayEnd = new Date(dayStart.getTime() + MS_DAY);
-    const label = dayStart.toLocaleDateString('en-IN', { weekday: 'short' });
+    const label = dayStart.toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'UTC' });
 
     const count = records.filter((record) => {
       const createdAt = new Date(record.createdAt);
@@ -56,8 +57,8 @@ const getDashboardStats = async (req, res) => {
     const last24h = new Date(now.getTime() - MS_DAY);
     const last7d = new Date(now.getTime() - 7 * MS_DAY);
     const last30d = new Date(now.getTime() - 30 * MS_DAY);
-    const todayStart = startOfDay(now);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const todayStart = startOfDayUTC(now);
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const next24h = new Date(now.getTime() + MS_DAY);
     const next7d = new Date(now.getTime() + 7 * MS_DAY);
 
@@ -83,6 +84,8 @@ const getDashboardStats = async (req, res) => {
       closingEventsRaw,
       bookmarkCountsRaw,
       lastSync,
+      notificationsForTrend,
+      totalNotifications,
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ createdAt: { $gte: last24h } }),
@@ -133,6 +136,8 @@ const getDashboardStats = async (req, res) => {
         { $group: { _id: '$bookmarks', count: { $sum: 1 } } },
       ]),
       SyncLog.findOne().sort({ createdAt: -1 }).lean(),
+      Notification.find({ createdAt: { $gte: last7d } }).select('createdAt').lean(),
+      Notification.countDocuments(),
     ]);
 
     const totalBookmarks = totalBookmarksAgg[0]?.total || 0;
@@ -268,11 +273,13 @@ const getDashboardStats = async (req, res) => {
       },
       engagement: {
         totalBookmarks,
+        totalNotifications,
         registrationsTracked: false,
         registrationsNote:
-          'Event registrations happen on external platforms and are not stored in EventSync. Bookmarks are shown as in-app engagement.',
+          'Event registrations happen on external platforms and are not stored in EventSync. Bookmarks and notifications are shown as in-app engagement.',
       },
       eventCreationTrend: buildDailyTrend(eventsForTrend, 7),
+      notificationActivity: buildDailyTrend(notificationsForTrend, 7),
       recentActivity,
       closingEvents,
       adminAlerts,
