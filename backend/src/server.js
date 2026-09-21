@@ -1,5 +1,13 @@
 require('dotenv').config();
 
+process.on('unhandledRejection', (reason) => {
+  console.error('[Process] Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[Process] Uncaught Exception:', error);
+});
+
 const app = require('./app');
 const connectDB = require('./config/db');
 const { initScheduler } = require('./aggregation/services/scheduler.service');
