@@ -77,14 +77,13 @@ const eventSchema = new mongoose.Schema(
       trim: true,
     },
     location: {
+      _id: false,
       type: {
         type: String,
         enum: ['Point'],
-        default: null,
       },
       coordinates: {
         type: [Number],
-        default: undefined,
       },
     },
     image: {
@@ -132,9 +131,16 @@ const eventSchema = new mongoose.Schema(
   }
 );
 
+eventSchema.pre('validate', function (next) {
+  if (this.location && (!this.location.type || !Array.isArray(this.location.coordinates) || this.location.coordinates.length < 2)) {
+    this.location = undefined;
+  }
+  next();
+});
+
 eventSchema.index({ isVerified: 1, registrationDeadline: 1 });
 eventSchema.index({ college: 1, category: 1 });
-eventSchema.index({ location: '2dsphere' });
+eventSchema.index({ location: '2dsphere' }, { sparse: true });
 
 const Event = mongoose.model('Event', eventSchema);
 
