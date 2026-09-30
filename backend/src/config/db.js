@@ -11,8 +11,8 @@ mongoose.connection.on('disconnected', () => {
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 30000,
+      connectTimeoutMS: 30000,
     });
     console.log('MongoDB connected');
     return true;

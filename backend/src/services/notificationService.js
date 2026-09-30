@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 
@@ -40,10 +41,15 @@ const safeCreateNotifications = async (operation, context = {}) => {
 };
 
 const createEventNotifications = async ({ actorUserId, eventId, eventTitle, eventCategory, eventTags, eventCollege, isPublic }) => {
-  const recipients = await User.find({ 
-    _id: { $ne: actorUserId },
+  const query = {
     'notificationPreferences.newEvents': { $ne: false }
-  }).select('_id interests').lean();
+  };
+
+  if (actorUserId && mongoose.isValidObjectId(actorUserId)) {
+    query._id = { $ne: actorUserId };
+  }
+
+  const recipients = await User.find(query).select('_id interests').lean();
 
   if (recipients.length === 0) {
     return { insertedCount: 0 };
@@ -84,6 +90,68 @@ const safeCreateEventNotifications = (payload) =>
       type: 'event_created',
       actorUserId: payload.actorUserId,
       eventId: payload.eventId,
+    }
+  );
+
+const createBatchEventNotifications = async (eventsList, actorUserId = 'system') => {
+  if (!Array.isArray(eventsList) || eventsList.length === 0) {
+    return { insertedCount: 0 };
+  }
+
+  const query = {
+    'notificationPreferences.newEvents': { $ne: false }
+  };
+
+  if (actorUserId && mongoose.isValidObjectId(actorUserId)) {
+    query._id = { $ne: actorUserId };
+  }
+
+  const recipients = await User.find(query).select('_id interests').lean();
+  if (recipients.length === 0) {
+    return { insertedCount: 0 };
+  }
+
+  const allNotifications = [];
+
+  for (const item of eventsList) {
+    const { eventId, eventTitle, eventCategory, eventTags, eventCollege, isPublic } = item;
+    const eventInterests = [eventCategory, ...(eventTags || [])]
+      .filter(Boolean)
+      .map((value) => value.trim().toLowerCase());
+
+    const matchingRecipients = recipients.filter((user) => {
+      if (eventInterests.length === 0) return false;
+      const userInterests = (user.interests || []).map((value) => value.trim().toLowerCase());
+      return userInterests.some((interest) => eventInterests.includes(interest));
+    });
+
+    if (matchingRecipients.length > 0) {
+      const message = buildNewEventNotificationMessage(eventTitle, eventCategory, eventCollege, isPublic);
+      matchingRecipients.forEach((user) => {
+        allNotifications.push({
+          user: user._id,
+          type: 'new_event',
+          event: eventId,
+          message,
+        });
+      });
+    }
+  }
+
+  if (allNotifications.length === 0) {
+    return { insertedCount: 0 };
+  }
+
+  const inserted = await Notification.insertMany(allNotifications);
+  return { insertedCount: inserted.length };
+};
+
+const safeCreateBatchEventNotifications = (eventsList, actorUserId) =>
+  safeCreateNotifications(
+    () => createBatchEventNotifications(eventsList, actorUserId),
+    {
+      type: 'batch_events_created',
+      count: eventsList?.length,
     }
   );
 
@@ -166,6 +234,8 @@ module.exports = {
   safeCreateEventNotifications,
   createBookmarkNotification,
   safeCreateBookmarkNotification,
+  createBatchEventNotifications,
+  safeCreateBatchEventNotifications,
   createDeadlineReminders,
   safeCreateDeadlineReminders,
   getUnreadNotificationCount,

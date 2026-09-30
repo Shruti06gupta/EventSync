@@ -64,6 +64,7 @@ const getEvents = async (req, res) => {
     const latitude = Number(req.query.latitude);
     const longitude = Number(req.query.longitude);
     const locationSearchActive = Boolean(locationName || (Number.isFinite(latitude) && Number.isFinite(longitude)));
+    const usingGeospatial = Number.isFinite(latitude) && Number.isFinite(longitude);
 
     let resolvedLocation = null;
     if (locationSearchActive) {
@@ -124,12 +125,19 @@ const getEvents = async (req, res) => {
     }
 
     if (locationSearchActive) {
-      const radiusInRadians = Math.min(Math.max(Number(radiusKm) || 100, 1), 5000) / 6378.1;
-      filter.location = {
-        $geoWithin: {
-          $centerSphere: [[resolvedLocation.longitude, resolvedLocation.latitude], radiusInRadians],
-        },
-      };
+      // First try geospatial search if coordinates are available
+      if (usingGeospatial) {
+        const radiusInRadians = Math.min(Math.max(Number(radiusKm) || 100, 1), 5000) / 6378.1;
+        filter.location = {
+          $geoWithin: {
+            $centerSphere: [[resolvedLocation.longitude, resolvedLocation.latitude], radiusInRadians],
+          },
+        };
+      } else if (locationName) {
+        // Fallback: search by venue field when locationName is provided
+        // This handles the case where events don't have GeoJSON coordinates
+        filter.venue = { $regex: locationName, $options: 'i' };
+      }
     }
 
     if (andConditions.length > 0) {
@@ -138,7 +146,8 @@ const getEvents = async (req, res) => {
 
     let allEvents = await Event.find(filter).populate('createdBy', 'name email role college');
 
-    if (locationSearchActive && resolvedLocation) {
+    // Only apply geospatial filtering if we have actual coordinates
+    if (locationSearchActive && resolvedLocation && usingGeospatial) {
       allEvents = allEvents
         .map((event) => {
           if (!event.location || !Array.isArray(event.location.coordinates) || event.location.coordinates.length < 2) {
@@ -241,8 +250,8 @@ const getEvents = async (req, res) => {
             active: true,
             locationName: resolvedLocation?.displayName || locationName || 'Your location',
             radiusKm: Number(radiusKm) || 100,
-            latitude: resolvedLocation?.latitude || null,
-            longitude: resolvedLocation?.longitude || null,
+            latitude: (Number.isFinite(latitude) && Number.isFinite(longitude)) ? latitude : null,
+            longitude: (Number.isFinite(latitude) && Number.isFinite(longitude)) ? longitude : null,
           }
         : { active: false },
     });
@@ -376,8 +385,11 @@ const updateEvent = async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    // Only the creator of the event can edit it
-    if (event.createdBy.toString() !== req.user._id.toString()) {
+    // Only the creator of the event or an admin can edit it
+    if (
+      req.user.role !== 'admin' &&
+      (!event.createdBy || event.createdBy.toString() !== req.user._id.toString())
+    ) {
       return res.status(403).json({ message: 'Not authorized to edit this event' });
     }
 

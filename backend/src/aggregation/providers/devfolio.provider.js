@@ -1,196 +1,65 @@
 const axios = require('axios');
-const { loadHtml } = require('../utils/htmlParser');
-const { cleanText, resolveUrl } = require('../utils/textCleaner');
+const { cleanText } = require('../utils/textCleaner');
 
-/**
- * Fetch events from Devfolio
- * Attempts to fetch real Devfolio hackathon data
- * @returns {Promise<Array>} Array of parsed events
- * @throws {Error} If fetching fails completely
- */
-const fetchDevfolioEvents = async () => {
-  console.log('[Devfolio] Starting event aggregation...');
-  const events = [];
+const parseDevfolioItem = (item, cutoffDate, now) => {
+  const source = item?._source;
+  if (!source) return null;
 
-  try {
-    // Devfolio uses a React SPA, but we can try multiple approaches:
-    // 1. Direct HTML scraping for SSR content
-    // 2. Try to find JSON data embedded in the HTML
-    // 3. Use alternative public endpoints if available
-    
-    const url = 'https://devfolio.co/hackathons';
-    console.log('[Devfolio] Fetching from hackathons page...');
-    
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-      },
-      timeout: 15000
-    });
+  let regnDeadline = source.hackathon_setting?.reg_ends_at ? new Date(source.hackathon_setting.reg_ends_at) : null;
+  let startDate = source.starts_at ? new Date(source.starts_at) : null;
+  let endDate = source.ends_at ? new Date(source.ends_at) : null;
 
-    // Try to extract embedded JSON data first (common in React SPAs)
-    const scriptMatch = response.data.match(/<script id="__NEXT_DATA__" type="application\/json">(.+?)<\/script>/);
-    
-    if (scriptMatch) {
-      try {
-        const jsonData = JSON.parse(scriptMatch[1]);
-        console.log('[Devfolio] Found embedded Next.js data');
-        
-        // Try to extract hackathon data from the Next.js data structure
-        // This is a best-effort approach as the structure may vary
-        const props = jsonData?.props?.pageProps;
-        
-        if (props && Array.isArray(props.hackathons)) {
-          console.log(`[Devfolio] Found ${props.hackathons.length} hackathons in embedded data`);
-          
-          for (const hackathon of props.hackathons) {
-            try {
-              const event = parseDevfolioEvent(hackathon);
-              if (event) {
-                events.push(event);
-              }
-            } catch (err) {
-              console.warn(`[Devfolio] Failed to parse hackathon: ${err.message}`);
-            }
-          }
-        }
-      } catch (parseError) {
-        console.warn('[Devfolio] Failed to parse embedded JSON data:', parseError.message);
-      }
-    }
+  // Use startDate if regnDeadline is not available
+  if (!regnDeadline && startDate) regnDeadline = new Date(startDate.getTime());
 
-    // If embedded data didn't work, try HTML scraping as fallback
-    if (events.length === 0) {
-      console.log('[Devfolio] No events from embedded data, trying HTML scraping...');
-      
-      const $ = loadHtml(response.data);
-      
-      // Try multiple potential selectors for Devfolio hackathon cards
-      const selectors = [
-        '[class*="HackathonCard"]',
-        '[class*="hackathon-card"]',
-        '[class*="EventCard"]',
-        'a[href*="/hackathons/"]',
-        '[data-testid*="hackathon"]'
-      ];
-
-      for (const selector of selectors) {
-        const elements = $(selector);
-        if (elements.length > 0) {
-          console.log(`[Devfolio] Found ${elements.length} elements with selector: ${selector}`);
-          
-          elements.each((i, el) => {
-            try {
-              const $el = $(el);
-              const title = cleanText($el.find('h1, h2, h3, h4, [class*="title"], [class*="Title"]').first().text());
-              const link = resolveUrl($el.attr('href') || $el.find('a').first().attr('href'), url);
-              const organizer = cleanText($el.find('[class*="organizer"], [class*="Organizer"], [class*="company"]').first().text()) || 'Devfolio Host';
-              const image = $el.find('img').first().attr('src') || '';
-              
-              // Try to extract dates from text
-              const dateText = cleanText($el.find('[class*="date"], [class*="Date"], time').first().text());
-              const venue = cleanText($el.find('[class*="location"], [class*="Location"], [class*="venue"]').first().text()) || 'Online';
-              
-              if (title && link && link.includes('hackathon')) {
-                const parsedEvent = parseDevfolioEventFromHtml(title, link, organizer, image, dateText, venue);
-                if (parsedEvent) {
-                  events.push(parsedEvent);
-                }
-              }
-            } catch (err) {
-              console.warn(`[Devfolio] Failed to parse element: ${err.message}`);
-            }
-          });
-          
-          if (events.length > 0) {
-            break; // Stop if we found events with this selector
-          }
-        }
-      }
-    }
-
-    console.log(`[Devfolio] Total events fetched: ${events.length}`);
-
-    if (events.length === 0) {
-      throw new Error('No events could be fetched from Devfolio. The site structure may have changed or scraping is not possible.');
-    }
-
-  } catch (error) {
-    console.error('[Devfolio] Error fetching events:', error.message);
-    throw new Error(`Devfolio aggregation failed: ${error.message}`);
-  }
-
-  return events;
-};
-
-/**
- * Parse a Devfolio event object from embedded JSON data
- */
-function parseDevfolioEvent(data) {
-  if (!data) return null;
-
-  const title = data.title || data.name;
-  const link = data.slug ? `https://devfolio.co/hackathons/${data.slug}` : data.url;
-  const organizer = data.organisation?.name || data.organizer || 'Devfolio Host';
-  const image = data.banner?.url || data.image || data.thumbnail || '';
-  
-  if (!title || !link) {
+  // Skip events that are strictly in the past
+  const checkDate = endDate || regnDeadline || startDate;
+  if (checkDate && checkDate < cutoffDate) {
     return null;
   }
 
-  // Parse dates if available
-  let startDate, endDate, registrationDeadline;
-  
-  if (data.startsAt) {
-    startDate = new Date(data.startsAt);
-  } else if (data.startDate) {
-    startDate = new Date(data.startDate);
-  } else {
-    startDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // Default to 7 days from now
+  const title = source.name;
+  const slug = source.slug;
+  const link = slug ? `https://${slug}.devfolio.co` : null;
+  if (!title || !link) return null;
+
+  const organizer = source.hosted_by || 'Devfolio Host';
+  const image = source.hackathon_setting?.logo || source.cover_img || '';
+
+  let descriptionText = cleanText(source.desc || source.tagline || '');
+  if (!descriptionText) {
+    descriptionText = `Join ${title} on Devfolio!`;
+  }
+  descriptionText = descriptionText.length > 800 ? descriptionText.substring(0, 797) + '...' : descriptionText;
+
+  const venue = source.location || source.city || 'Online';
+  let mode = 'Offline';
+  if (source.apply_mode === 'online' || source.is_online || venue.toLowerCase().includes('online')) {
+    mode = 'Online';
+  } else if (source.apply_mode === 'both' || venue.toLowerCase().includes('hybrid')) {
+    mode = 'Hybrid';
   }
 
-  if (data.endsAt) {
-    endDate = new Date(data.endsAt);
-  } else if (data.endDate) {
-    endDate = new Date(data.endDate);
-  } else {
-    endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000); // Default to 2 days after start
-  }
+  // Fallback for missing dates to prevent validation errors
+  if (!startDate) startDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  if (!endDate) endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000);
+  if (!regnDeadline) regnDeadline = new Date(startDate.getTime() - 1 * 24 * 60 * 60 * 1000);
 
-  if (data.registrationDeadline) {
-    registrationDeadline = new Date(data.registrationDeadline);
-  } else {
-    registrationDeadline = new Date(startDate.getTime() - 1 * 24 * 60 * 60 * 1000); // Default to 1 day before start
-  }
-
-  // Validate date order
-  if (registrationDeadline > startDate) {
-    registrationDeadline = new Date(startDate.getTime());
-  }
-  if (endDate < startDate) {
-    endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000);
-  }
-
-  const venue = data.location?.city || data.venue || 'Online';
-  const mode = venue.toLowerCase().includes('online') ? 'Online' : 
-               venue.toLowerCase().includes('hybrid') ? 'Hybrid' : 'Offline';
-
-  const description = data.description?.substring(0, 800) || 
-                     `Participate in ${title}, a hackathon hosted by ${organizer}.`;
+  // Enforce basic timeline constraints
+  if (startDate < regnDeadline) startDate = new Date(regnDeadline.getTime());
+  if (endDate < startDate) endDate = new Date(startDate.getTime());
 
   return {
     title,
-    description,
+    description: descriptionText,
     organizer,
     college: 'Public',
     category: 'Hackathon',
-    tags: ['hackathon', 'coding', 'devfolio'],
+    tags: ['devfolio', 'hackathon'],
     source: 'devfolio',
     startDate,
     endDate,
-    registrationDeadline,
+    registrationDeadline: regnDeadline,
     mode,
     venue,
     image: image || `https://picsum.photos/seed/${encodeURIComponent(title)}/800/400`,
@@ -199,61 +68,90 @@ function parseDevfolioEvent(data) {
     isAggregated: true,
     isPublic: true,
   };
-}
+};
 
 /**
- * Parse a Devfolio event from HTML scraping
+ * Fetch events from Devfolio via public API
+ * @returns {Promise<Array>} Array of parsed events
  */
-function parseDevfolioEventFromHtml(title, link, organizer, image, dateText, venue) {
-  // Try to parse dates from text
-  let startDate, endDate, registrationDeadline;
-  
+const fetchDevfolioEvents = async () => {
+  console.log('[Devfolio] Starting event aggregation from API...');
+  const events = [];
+  const size = 100;
+  const MAX_FETCH = 2000;
+  const BATCH_SIZE = 4;
   const now = new Date();
-  
-  if (dateText) {
-    // Basic date parsing - this is a best-effort approach
-    const dateMatch = dateText.match(/(\d{1,2})(?:st|nd|rd|th)?\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*(\d{4})/i);
-    if (dateMatch) {
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const month = monthNames.findIndex(m => dateMatch[2].toLowerCase().startsWith(m.toLowerCase()));
-      if (month !== -1) {
-        startDate = new Date(parseInt(dateMatch[3]), month, parseInt(dateMatch[1]));
-        endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000);
-        registrationDeadline = new Date(startDate.getTime() - 1 * 24 * 60 * 60 * 1000);
+  const cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // 7 days ago
+
+  try {
+    // Fetch first offset (0)
+    const firstRes = await axios.post(
+      'https://api.devfolio.co/api/search/hackathons',
+      { from: 0, size },
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+          Accept: 'application/json',
+        },
+        timeout: 15000,
+      }
+    );
+
+    const firstHits = firstRes.data?.hits?.hits || [];
+    const totalHits = typeof firstRes.data?.hits?.total?.value === 'number'
+      ? firstRes.data.hits.total.value
+      : (typeof firstRes.data?.hits?.total === 'number' ? firstRes.data.hits.total : MAX_FETCH);
+
+    for (const item of firstHits) {
+      const parsed = parseDevfolioItem(item, cutoffDate, now);
+      if (parsed) events.push(parsed);
+    }
+    console.log(`[Devfolio] Offset 0: ${firstHits.length} hits received, total available: ${totalHits}`);
+
+    if (firstHits.length >= size && totalHits > size) {
+      const offsets = [];
+      for (let offset = size; offset < Math.min(totalHits, MAX_FETCH); offset += size) {
+        offsets.push(offset);
+      }
+
+      for (let i = 0; i < offsets.length; i += BATCH_SIZE) {
+        const batch = offsets.slice(i, i + BATCH_SIZE);
+        const batchPromises = batch.map(async (from) => {
+          try {
+            const res = await axios.post(
+              'https://api.devfolio.co/api/search/hackathons',
+              { from, size },
+              {
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+                  Accept: 'application/json',
+                },
+                timeout: 12000,
+              }
+            );
+            const hits = res.data?.hits?.hits || [];
+            return hits.map((item) => parseDevfolioItem(item, cutoffDate, now)).filter(Boolean);
+          } catch (err) {
+            console.warn(`[Devfolio] Failed offset ${from}: ${err.message}`);
+            return [];
+          }
+        });
+
+        const batchResults = await Promise.all(batchPromises);
+        batchResults.forEach((offsetEvents) => {
+          events.push(...offsetEvents);
+        });
       }
     }
+
+    console.log(`[Devfolio] Total active events fetched: ${events.length}`);
+  } catch (error) {
+    console.error('[Devfolio] Error fetching events:', error.message);
+    throw new Error(`Devfolio aggregation failed: ${error.message}`);
   }
 
-  // Fallback to default dates if parsing failed
-  if (!startDate) {
-    startDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000);
-    registrationDeadline = new Date(startDate.getTime() - 1 * 24 * 60 * 60 * 1000);
-  }
-
-  const mode = venue.toLowerCase().includes('online') ? 'Online' : 
-               venue.toLowerCase().includes('hybrid') ? 'Hybrid' : 'Offline';
-
-  return {
-    title,
-    description: `Participate in ${title}, a hackathon hosted by ${organizer}. ${dateText ? `Scheduled for ${dateText}.` : ''}`,
-    organizer,
-    college: 'Public',
-    category: 'Hackathon',
-    tags: ['hackathon', 'coding', 'devfolio'],
-    source: 'devfolio',
-    startDate,
-    endDate,
-    registrationDeadline,
-    mode,
-    venue: venue || 'Online',
-    image: image || `https://picsum.photos/seed/${encodeURIComponent(title)}/800/400`,
-    eventLink: link,
-    isVerified: true,
-    isAggregated: true,
-    isPublic: true,
-  };
-}
+  return events;
+};
 
 module.exports = {
   fetchDevfolioEvents,
