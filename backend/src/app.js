@@ -44,4 +44,17 @@ app.get('/health', (req, res) => {
   res.json({ message: 'EventSync API is running' });
 });
 
+// Global error handler (must be after all routes)
+app.use((err, req, res, next) => {
+  console.error('[Global Error Handler]', err);
+
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'Internal server error';
+
+  res.status(statusCode).json({
+    message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+  });
+});
+
 module.exports = app;

@@ -14,6 +14,10 @@ const {
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
+const escapeRegex = (string) => {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
 const REMINDER_WINDOWS = [
   { stage: '6h', minMs: 5 * HOUR_MS, maxMs: 7 * HOUR_MS },
   { stage: '24h', minMs: 23 * HOUR_MS, maxMs: 25 * HOUR_MS },
@@ -81,11 +85,11 @@ const getEligibleUsers = async (event) => {
   };
 
   if (event.category) {
-    query.$or.push({ interests: { $regex: new RegExp(`^${event.category}$`, 'i') } });
+    query.$or.push({ interests: { $regex: new RegExp(`^${escapeRegex(event.category)}$`, 'i') } });
   }
 
   if (event.college) {
-    query.$or.push({ college: { $regex: new RegExp(`^${event.college}$`, 'i') } });
+    query.$or.push({ college: { $regex: new RegExp(`^${escapeRegex(event.college)}$`, 'i') } });
   }
 
   return User.find(query)
