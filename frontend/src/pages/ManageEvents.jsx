@@ -60,6 +60,9 @@ export default function ManageEvents() {
     try {
       const res = await api.get('/aggregation/status')
       setSyncStatus(res.data)
+      if (res.data?.isRunning) {
+        setSyncing(true)
+      }
     } catch (err) {
       console.error('Failed to load sync status', err)
     }
@@ -68,9 +71,12 @@ export default function ManageEvents() {
   const handleSync = async () => {
     try {
       setSyncing(true)
+      setErrorMessage('')
       setSyncReport(null)
       const res = await api.post('/aggregation/sync')
-      setSyncReport(res.data.report)
+      if (res.data?.report) {
+        setSyncReport(res.data.report)
+      }
       loadMyEvents()
       loadSyncStatus()
     } catch (err) {
@@ -83,6 +89,12 @@ export default function ManageEvents() {
   useEffect(() => {
     loadMyEvents()
     loadSyncStatus()
+
+    const interval = setInterval(() => {
+      loadSyncStatus()
+    }, 30000)
+
+    return () => clearInterval(interval)
   }, [user])
 
   const getLinkType = (url) => {

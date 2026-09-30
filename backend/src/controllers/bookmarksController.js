@@ -27,6 +27,12 @@ const getBookmarks = async (req, res) => {
 
     const events = (user.bookmarks || []).filter(Boolean);
 
+    // Clean up orphaned bookmark references if any events were deleted
+    if (events.length !== (user.bookmarks || []).length) {
+      user.bookmarks = events.map(e => e._id);
+      await user.save();
+    }
+
     return res.status(200).json({
       message: 'Bookmarks fetched successfully',
       events,

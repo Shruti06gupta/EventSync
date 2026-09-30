@@ -1,14 +1,25 @@
-const { runAggregation } = require('../aggregation/services/aggregation.service');
+const { runAggregation, isSyncActive } = require('../aggregation/services/aggregation.service');
 const SyncLog = require('../models/SyncLog');
 
 const triggerSync = async (req, res) => {
   try {
-    // Ensure only admins can trigger this (middleware usually handles this, but good to be safe)
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Only admins can trigger synchronization' });
     }
 
     const report = await runAggregation(req.user._id);
+
+    if (report && report.isAlreadyRunning) {
+      return res.status(200).json({
+        message: 'Synchronization is already running in the background',
+        report: {
+          status: 'running',
+          devfolioCount: 0,
+          unstopCount: 0,
+          duplicatesSkipped: 0,
+        },
+      });
+    }
 
     return res.status(200).json({
       message: 'Synchronization completed successfully',
@@ -22,28 +33,42 @@ const triggerSync = async (req, res) => {
   }
 };
 
+const getNextScheduledSyncDate = (now = new Date()) => {
+  const candidateSlots = [];
+  for (const h of [3, 9, 15, 21]) {
+    const slotToday = new Date(now);
+    slotToday.setUTCHours(h, 30, 0, 0);
+    if (slotToday > now) {
+      candidateSlots.push(slotToday);
+    }
+    const slotTomorrow = new Date(now);
+    slotTomorrow.setUTCDate(slotTomorrow.getUTCDate() + 1);
+    slotTomorrow.setUTCHours(h, 30, 0, 0);
+    candidateSlots.push(slotTomorrow);
+  }
+  candidateSlots.sort((a, b) => a.getTime() - b.getTime());
+  return candidateSlots[0];
+};
+
 const getSyncStatus = async (req, res) => {
   try {
-    // Get the most recent sync log
     const lastSync = await SyncLog.findOne().sort({ createdAt: -1 }).lean();
-    
+    const nextSync = getNextScheduledSyncDate();
+    const isRunning = isSyncActive();
+
     if (!lastSync) {
       return res.status(200).json({
         hasSyncHistory: false,
+        isRunning,
         message: 'No sync history available',
+        nextScheduledSync: nextSync,
+        schedule: 'Every 6 hours (9:00 AM, 3:00 PM, 9:00 PM, 3:00 AM IST)',
       });
-    }
-
-    // Calculate next scheduled sync (9:00 AM IST = 3:30 AM UTC)
-    const now = new Date();
-    const nextSync = new Date(now);
-    nextSync.setUTCHours(3, 30, 0, 0);
-    if (nextSync <= now) {
-      nextSync.setUTCDate(nextSync.getUTCDate() + 1);
     }
 
     return res.status(200).json({
       hasSyncHistory: true,
+      isRunning,
       lastSync: {
         status: lastSync.status,
         timestamp: lastSync.createdAt,
@@ -55,7 +80,7 @@ const getSyncStatus = async (req, res) => {
         sourceStats: lastSync.sourceStats || null,
       },
       nextScheduledSync: nextSync,
-      schedule: 'Daily at 9:00 AM IST',
+      schedule: 'Every 6 hours (9:00 AM, 3:00 PM, 9:00 PM, 3:00 AM IST)',
     });
   } catch (error) {
     return res.status(500).json({

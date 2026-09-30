@@ -1,5 +1,13 @@
 require('dotenv').config();
 
+process.on('unhandledRejection', (reason) => {
+  console.error('[Process] Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[Process] Uncaught Exception:', error);
+});
+
 const app = require('./app');
 const connectDB = require('./config/db');
 const { initScheduler } = require('./aggregation/services/scheduler.service');
@@ -22,14 +30,16 @@ const startServer = () => {
     process.exit(1);
   });
 
-  connectDB().then((isDatabaseReady) => {
+  connectDB().then(async (isDatabaseReady) => {
     if (isDatabaseReady) {
       initScheduler();
       initDeadlineCron();
       
-      // Verify SMTP connection
+      // Verify SMTP connection (non-blocking)
       const { verifySmtpConnection } = require('./utils/emailService');
-      verifySmtpConnection();
+      verifySmtpConnection().catch((error) => {
+        console.warn('[SMTP] Verification failed (non-critical):', error.message);
+      });
       return;
     }
 

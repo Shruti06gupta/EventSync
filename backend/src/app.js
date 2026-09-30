@@ -7,6 +7,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const userRoutes = require('./routes/userRoutes');
 const aggregationRoutes = require('./routes/aggregation.routes');
 const adminRoutes = require('./routes/adminRoutes');
+const chatbotRoutes = require('./routes/chatbotRoutes');
 
 const app = express();
 
@@ -39,9 +40,23 @@ app.use('/notifications', notificationRoutes);
 app.use('/user', userRoutes);
 app.use('/aggregation', aggregationRoutes);
 app.use('/admin', adminRoutes);
+app.use('/chatbot', chatbotRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ message: 'EventSync API is running' });
+});
+
+// Global error handler (must be after all routes)
+app.use((err, req, res, next) => {
+  console.error('[Global Error Handler]', err);
+
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'Internal server error';
+
+  res.status(statusCode).json({
+    message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+  });
 });
 
 module.exports = app;
