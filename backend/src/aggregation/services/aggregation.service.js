@@ -5,22 +5,19 @@ const { fetchUnstopEvents } = require('../providers/unstop.provider');
 const { deduplicateEvents } = require('./deduplication.service');
 const { categorizeEvent } = require('./categorization.service');
 const { safeCreateBatchEventNotifications } = require('../../services/notificationService');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { isGeminiAvailable, generateContent } = require('../../utils/gemini');
 const { getEventImage } = require('../../utils/imageHelper');
-
-const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
 
 let isSyncRunning = false;
 
 const isSyncActive = () => isSyncRunning;
 
 const generateSummary = async (description) => {
-  if (!genAI || !description) return description;
+  if (!isGeminiAvailable() || !description) return description;
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     const prompt = `Summarize this event description in 2-3 short sentences. Keep it exciting: ${description}`;
-    const result = await model.generateContent(prompt);
-    return result.response.text();
+    const result = await generateContent(prompt);
+    return result || description;
   } catch (error) {
     console.error('Gemini API Error:', error.message);
     return description;
@@ -148,7 +145,7 @@ const runAggregation = async (actorUserId = null) => {
     console.log('[Aggregation] Inserting new events...');
     for (const eventData of newEvents) {
       try {
-        if (genAI) {
+        if (isGeminiAvailable()) {
           eventData.description = await generateSummary(eventData.description);
         }
 

@@ -7,6 +7,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const userRoutes = require('./routes/userRoutes');
 const aggregationRoutes = require('./routes/aggregation.routes');
 const adminRoutes = require('./routes/adminRoutes');
+const chatbotRoutes = require('./routes/chatbotRoutes');
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use('/notifications', notificationRoutes);
 app.use('/user', userRoutes);
 app.use('/aggregation', aggregationRoutes);
 app.use('/admin', adminRoutes);
+app.use('/chatbot', chatbotRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ message: 'EventSync API is running' });
