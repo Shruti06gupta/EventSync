@@ -46,19 +46,20 @@ const initScheduler = () => {
   checkOverdueSync();
 
   // Expired events cleanup: run every hour at minute 0
-  // Remove events closed for more than 3 days
+  // Remove aggregated events closed for more than 3 days (preserves manually created events)
   cron.schedule('0 * * * *', async () => {
-    console.log('[Scheduler] Running expired events cleanup...');
+    console.log('[Scheduler] Running expired aggregated events cleanup...');
     try {
       const now = new Date();
       const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
 
-      // Delete events whose registration deadline has passed by more than 3 days
+      // Delete only aggregated events whose registration deadline has passed by more than 3 days
       const result = await Event.deleteMany({
+        isAggregated: true,
         registrationDeadline: { $lt: threeDaysAgo },
       });
 
-      console.log(`[Scheduler] Cleanup complete. Deleted ${result.deletedCount} events closed for more than 3 days.`);
+      console.log(`[Scheduler] Cleanup complete. Deleted ${result.deletedCount} aggregated events closed for more than 3 days.`);
     } catch (error) {
       console.error('[Scheduler] Cleanup failed:', error.message);
     }

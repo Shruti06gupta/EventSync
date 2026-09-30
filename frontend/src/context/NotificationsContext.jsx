@@ -154,6 +154,7 @@ export function NotificationsProvider({ children }) {
       liveToast,
       clearToast,
       loadNotifications,
+      refreshNotifications: loadNotifications,
       markNotificationAsRead,
     }),
     [notifications, unreadCount, loading, error, liveToast, clearToast, loadNotifications, markNotificationAsRead]

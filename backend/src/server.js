@@ -30,14 +30,16 @@ const startServer = () => {
     process.exit(1);
   });
 
-  connectDB().then((isDatabaseReady) => {
+  connectDB().then(async (isDatabaseReady) => {
     if (isDatabaseReady) {
       initScheduler();
       initDeadlineCron();
       
-      // Verify SMTP connection
+      // Verify SMTP connection (non-blocking)
       const { verifySmtpConnection } = require('./utils/emailService');
-      verifySmtpConnection();
+      verifySmtpConnection().catch((error) => {
+        console.warn('[SMTP] Verification failed (non-critical):', error.message);
+      });
       return;
     }
 
