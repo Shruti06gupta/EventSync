@@ -12,10 +12,10 @@ if (process.env.GEMINI_API_KEY) {
 
 /**
  * Get the Gemini model instance
- * @param {string} modelName - The model name to use (default: 'gemini-1.5-flash')
+ * @param {string} modelName - The model name to use (default: 'gemini-3.7-flash')
  * @returns {object|null} The GenerativeModel instance or null if initialization failed
  */
-const getGeminiModel = (modelName = 'gemini-1.5-flash') => {
+const getGeminiModel = (modelName = 'gemini-3.7-flash') => {
   if (!genAI) {
     console.warn('[Gemini] Gemini AI not initialized. Check GEMINI_API_KEY environment variable.');
     return null;
@@ -33,25 +33,34 @@ const getGeminiModel = (modelName = 'gemini-1.5-flash') => {
  * Send a prompt to Gemini and get the response
  * @param {string} prompt - The prompt to send to Gemini
  * @param {object} options - Optional configuration
- * @param {string} options.modelName - The model name to use (default: 'gemini-1.5-flash')
+ * @param {string} options.modelName - The model name to use (default: 'gemini-3.7-flash')
  * @returns {Promise<string|null>} The response text or null on error
  */
 const generateContent = async (prompt, options = {}) => {
-  const { modelName = 'gemini-1.5-flash' } = options;
+  const primaryModel = options.modelName || 'gemini-3.7-flash';
+  const fallbackModels = [
+    primaryModel,
+    'gemini-3.6-flash',
+    'gemini-3.5-flash',
+    'gemini-flash-latest'
+  ];
 
-  const model = getGeminiModel(modelName);
-  if (!model) {
-    return null;
-  }
+  for (const modelName of fallbackModels) {
+    const model = getGeminiModel(modelName);
+    if (!model) continue;
 
-  try {
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    return response.text();
-  } catch (error) {
-    console.error('[Gemini] API Error:', error.message);
-    return null;
+    try {
+      const result = await model.generateContent(prompt);
+      const response = result.response;
+      return response.text();
+    } catch (error) {
+      console.warn(`[Gemini] Model ${modelName} failed:`, error.message);
+      // If it's a 404 or 503, try the next model in the fallback list
+    }
   }
+  
+  console.error('[Gemini] All fallback models failed.');
+  return null;
 };
 
 /**

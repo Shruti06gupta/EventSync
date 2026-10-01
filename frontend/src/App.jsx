@@ -15,34 +15,39 @@ import AdminUsers from './pages/AdminUsers'
 import AdminReports from './pages/AdminReports'
 import { AuthProvider } from './context/AuthContext'
 import { NotificationsProvider } from './context/NotificationsContext'
+import { ChatbotProvider } from './context/ChatbotContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
 import CenteredLayout from './components/CenteredLayout'
 import Navbar from './components/Navbar'
+import ChatbotWidget from './components/chatbot/ChatbotWidget'
 
 export default function App() {
   return (
     <AuthProvider>
       <NotificationsProvider>
-        <div className="min-h-screen bg-brand-bg">
-          <Navbar />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<CenteredLayout><Login /></CenteredLayout>} />
-            <Route path="/register" element={<CenteredLayout><Register /></CenteredLayout>} />
-            <Route path="/forgot-password" element={<CenteredLayout><ForgotPassword /></CenteredLayout>} />
-            <Route path="/reset-password" element={<CenteredLayout><ResetPassword /></CenteredLayout>} />
-            <Route path="/profile" element={<ProtectedRoute><CenteredLayout><Profile /></CenteredLayout></ProtectedRoute>} />
-            <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
-            <Route path="/events/:id" element={<ProtectedRoute><EventDetails /></ProtectedRoute>} />
-            <Route path="/bookmarks" element={<ProtectedRoute><Bookmarks /></ProtectedRoute>} />
-            <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />
-            <Route path="/manage" element={<ProtectedRoute><AdminRoute><ManageEvents /></AdminRoute></ProtectedRoute>} />
-            <Route path="/admin/users" element={<ProtectedRoute><AdminRoute><AdminUsers /></AdminRoute></ProtectedRoute>} />
-            <Route path="/admin/reports" element={<ProtectedRoute><AdminRoute><AdminReports /></AdminRoute></ProtectedRoute>} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
+        <ChatbotProvider>
+          <div className="min-h-screen bg-brand-bg">
+            <Navbar />
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<CenteredLayout><Login /></CenteredLayout>} />
+              <Route path="/register" element={<CenteredLayout><Register /></CenteredLayout>} />
+              <Route path="/forgot-password" element={<CenteredLayout><ForgotPassword /></CenteredLayout>} />
+              <Route path="/reset-password" element={<CenteredLayout><ResetPassword /></CenteredLayout>} />
+              <Route path="/profile" element={<ProtectedRoute><CenteredLayout><Profile /></CenteredLayout></ProtectedRoute>} />
+              <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
+              <Route path="/events/:id" element={<ProtectedRoute><EventDetails /></ProtectedRoute>} />
+              <Route path="/bookmarks" element={<ProtectedRoute><Bookmarks /></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />
+              <Route path="/manage" element={<ProtectedRoute><AdminRoute><ManageEvents /></AdminRoute></ProtectedRoute>} />
+              <Route path="/admin/users" element={<ProtectedRoute><AdminRoute><AdminUsers /></AdminRoute></ProtectedRoute>} />
+              <Route path="/admin/reports" element={<ProtectedRoute><AdminRoute><AdminReports /></AdminRoute></ProtectedRoute>} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            <ChatbotWidget />
+          </div>
+        </ChatbotProvider>
       </NotificationsProvider>
     </AuthProvider>
   )
