@@ -27,15 +27,18 @@ const buildEventFilter = (queryParams) => {
 
   const andConditions = [];
 
-  // Search filter
+  // Search filter (escape regex special characters to prevent ReDoS)
   if (search) {
+    const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapedSearch = escapeRegex(search);
+
     andConditions.push({
       $or: [
-        { title: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { organizer: { $regex: search, $options: 'i' } },
-        { college: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } },
+        { title: { $regex: escapedSearch, $options: 'i' } },
+        { description: { $regex: escapedSearch, $options: 'i' } },
+        { organizer: { $regex: escapedSearch, $options: 'i' } },
+        { college: { $regex: escapedSearch, $options: 'i' } },
+        { tags: { $in: [new RegExp(escapedSearch, 'i')] } },
       ],
     });
   }
@@ -71,9 +74,14 @@ const buildEventFilter = (queryParams) => {
     }
   }
 
-  // Location filter (venue field - text search)
+  // Location filter (search both venue and locationName fields)
   if (locationName) {
-    filter.venue = { $regex: locationName, $options: 'i' };
+    andConditions.push({
+      $or: [
+        { venue: { $regex: locationName, $options: 'i' } },
+        { locationName: { $regex: locationName, $options: 'i' } },
+      ],
+    });
   }
 
   // Date range filters
@@ -124,16 +132,48 @@ const buildEventFilter = (queryParams) => {
  * @returns {Promise<object>} Query result with events and metadata
  */
 const queryEvents = async (queryParams, options = {}) => {
-  const { limit = 10, skip = 0 } = options;
+  const { limit = 10, skip = 0, lean = false } = options;
 
   try {
     const filter = buildEventFilter(queryParams);
-    const events = await Event.find(filter)
-      .populate('createdBy', 'name email role college')
-      .skip(skip)
-      .limit(limit);
+    const queryStart = Date.now();
 
+    // For chatbot, use lean() and minimal projection to avoid unnecessary data
+    const projection = lean ? {
+      _id: 1,
+      title: 1,
+      description: 1,
+      organizer: 1,
+      college: 1,
+      category: 1,
+      tags: 1,
+      source: 1,
+      startDate: 1,
+      endDate: 1,
+      registrationDeadline: 1,
+      mode: 1,
+      venue: 1,
+      locationName: 1,
+      image: 1,
+      eventLink: 1,
+    } : null;
+
+    const query = Event.find(filter, projection);
+
+    if (lean) {
+      query.lean();
+    } else {
+      query.populate('createdBy', 'name email role college');
+    }
+
+    const events = await query.skip(skip).limit(limit);
+
+    const countStart = Date.now();
     const totalEvents = await Event.countDocuments(filter);
+    const countTime = Date.now() - countStart;
+    const queryTime = Date.now() - queryStart;
+
+    console.log('[EventQueryService] Event query took:', queryTime, 'ms, count query took:', countTime, 'ms, lean:', lean);
 
     return {
       success: true,

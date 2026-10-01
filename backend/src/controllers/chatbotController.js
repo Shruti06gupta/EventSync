@@ -33,6 +33,14 @@ const handleChatMessage = async (req, res) => {
       });
     }
 
+    // Limit message length to prevent abuse
+    if (message.length > 1000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message is too long. Please keep it under 1000 characters.',
+      });
+    }
+
     // Validate and limit conversation context
     let limitedContext = [];
     if (Array.isArray(conversationContext)) {

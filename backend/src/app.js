@@ -24,7 +24,8 @@ const allowedOrigins = new Set(
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.has(origin)) {
+      // Allow any localhost/127.0.0.1 origin in development
+      if (!origin || allowedOrigins.has(origin) || origin?.startsWith('http://localhost:') || origin?.startsWith('http://127.0.0.1:')) {
         return callback(null, true);
       }
       return callback(new Error(`CORS blocked for origin: ${origin}`));

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
+import ReactMarkdown from 'react-markdown'
 import api from '../api'
 import BookmarkButton from '../components/BookmarkButton'
 import useBookmarks from '../hooks/useBookmarks'
@@ -230,9 +231,37 @@ export default function EventDetails() {
             {/* Description */}
             <div className="mt-6">
               <h2 className="text-lg font-bold text-brand-text">About This Event</h2>
-              <p className="mt-3 text-base text-brand-muted leading-relaxed whitespace-pre-wrap">
-                {event.description || 'No description available for this event.'}
-              </p>
+              <div className="mt-3 text-base text-brand-muted leading-relaxed prose prose-slate max-w-none">
+                {event.description ? (
+                  <ReactMarkdown
+                    components={{
+                      h1: ({ children }) => <h1 className="text-2xl font-bold mb-4">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-xl font-bold mb-3">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-lg font-bold mb-2">{children}</h3>,
+                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                      em: ({ children }) => <em className="italic">{children}</em>,
+                      p: ({ children }) => <p className="mb-4">{children}</p>,
+                      ul: ({ children }) => <ul className="list-disc list-inside mb-4">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-inside mb-4">{children}</ol>,
+                      li: ({ children }) => <li className="mb-1">{children}</li>,
+                      a: ({ href, children }) => (
+                        <a href={href} target="_blank" rel="noopener noreferrer" className="text-brand-teal hover:underline">
+                          {children}
+                        </a>
+                      ),
+                      code: ({ children }) => (
+                        <code className="bg-slate-100 px-1.5 py-0.5 rounded text-sm font-mono text-slate-800">
+                          {children}
+                        </code>
+                      ),
+                    }}
+                  >
+                    {event.description}
+                  </ReactMarkdown>
+                ) : (
+                  'No description available for this event.'
+                )}
+              </div>
             </div>
 
             {/* Event Details Grid */}
