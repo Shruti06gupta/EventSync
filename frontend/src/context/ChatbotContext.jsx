@@ -10,6 +10,7 @@ export const ChatbotProvider = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [isSending, setIsSending] = useState(false) // Prevent duplicate sends
 
   const openChat = useCallback(() => setIsOpen(true), [])
   const closeChat = useCallback(() => setIsOpen(false), [])
@@ -21,6 +22,9 @@ export const ChatbotProvider = ({ children }) => {
 
   const sendMessage = async (text) => {
     if (!text || !text.trim()) return
+    if (isSending) return // Prevent duplicate sends
+
+    setIsSending(true)
 
     const userMessage = {
       id: Date.now().toString() + '-user',
@@ -60,7 +64,7 @@ export const ChatbotProvider = ({ children }) => {
       });
 
       setError(error.response?.data?.message || 'Failed to connect to the chatbot.')
-      
+
       const errorMessage = {
         id: Date.now().toString() + '-error',
         role: 'assistant',
@@ -70,6 +74,7 @@ export const ChatbotProvider = ({ children }) => {
       setMessages((prev) => [...prev, errorMessage])
     } finally {
       setIsLoading(false)
+      setIsSending(false)
     }
   }
 

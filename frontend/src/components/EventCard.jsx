@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import ReactMarkdown from 'react-markdown'
 import BookmarkButton from './BookmarkButton'
 import { getEventImage } from '../utils/imageHelper'
 
@@ -137,9 +138,26 @@ export default function EventCard({
         </h3>
 
         {/* Description */}
-        <p className="mt-2.5 line-clamp-2 flex-1 text-sm text-brand-muted leading-relaxed">
-          {event.description || 'No description available for this event.'}
-        </p>
+        <div className="mt-2.5 line-clamp-2 flex-1 text-sm text-brand-muted leading-relaxed">
+          {event.description ? (
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => <>{children}</>,
+                strong: ({ children }) => <span className="font-semibold">{children}</span>,
+                em: ({ children }) => <span className="italic">{children}</span>,
+                a: ({ href, children }) => (
+                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-brand-teal hover:underline">
+                    {children}
+                  </a>
+                ),
+              }}
+            >
+              {event.description}
+            </ReactMarkdown>
+          ) : (
+            'No description available for this event.'
+          )}
+        </div>
 
         {/* Meta Info */}
         <div className="mt-4 space-y-2 border-t border-slate-100 pt-3 text-xs text-slate-600">
