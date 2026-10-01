@@ -21,6 +21,7 @@ export default defineConfig({
       '/aggregation': proxyToBackend,
       '/admin': proxyToBackend,
       '/health': proxyToBackend,
+      '/chatbot': proxyToBackend,
     },
   },
 })
