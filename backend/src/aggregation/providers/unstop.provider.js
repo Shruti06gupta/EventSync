@@ -1,7 +1,8 @@
 const axios = require('axios');
 const { cleanText } = require('../utils/textCleaner');
+const { geocodeLocation, shouldGeocode, isValidCoordinate } = require('../../utils/geocoder');
 
-const parseUnstopItem = (item) => {
+const parseUnstopItem = async (item) => {
   const title = item.title;
   const link = item.public_url ? `https://unstop.com/${item.public_url}` : null;
   if (!title || !link) return null;
@@ -40,6 +41,25 @@ const parseUnstopItem = (item) => {
   const venue = item.region || 'Online';
   const mode = venue.toLowerCase().includes('online') ? 'Online' : 'Hybrid';
 
+  // Geocode location for offline events
+  let location = null;
+  let locationName = venue;
+  if (shouldGeocode(venue, mode)) {
+    try {
+      const coords = await geocodeLocation(venue);
+      if (coords && isValidCoordinate(coords.latitude, coords.longitude)) {
+        location = {
+          type: 'Point',
+          coordinates: [coords.longitude, coords.latitude],
+        };
+        locationName = coords.displayName;
+      }
+    } catch (error) {
+      // Geocoding failed - save event without coordinates
+      console.warn(`[Unstop] Geocoding failed for ${title}: ${error.message}`);
+    }
+  }
+
   return {
     title,
     description: descriptionText,
@@ -53,6 +73,8 @@ const parseUnstopItem = (item) => {
     registrationDeadline: regnDeadline,
     mode,
     venue,
+    locationName,
+    location,
     image: image || `https://picsum.photos/seed/${encodeURIComponent(title)}/800/400`,
     eventLink: link,
     isVerified: true,
@@ -87,7 +109,7 @@ const fetchUnstopEvents = async () => {
     const totalPages = Math.min(firstRes.data?.data?.last_page || MAX_PAGES, MAX_PAGES);
 
     for (const item of firstItems) {
-      const parsed = parseUnstopItem(item);
+      const parsed = await parseUnstopItem(item);
       if (parsed) events.push(parsed);
     }
     console.log(`[Unstop] Page 1: ${events.length} events extracted (Total target pages: ${totalPages})`);
@@ -111,7 +133,8 @@ const fetchUnstopEvents = async () => {
             timeout: 12000
           });
           const items = res.data?.data?.data || [];
-          return items.map(parseUnstopItem).filter(Boolean);
+          const parsedItems = await Promise.all(items.map(parseUnstopItem));
+          return parsedItems.filter(Boolean);
         } catch (err) {
           console.warn(`[Unstop] Failed page ${page}: ${err.message}`);
           return [];
