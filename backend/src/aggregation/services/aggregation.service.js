@@ -7,6 +7,7 @@ const { categorizeEvent } = require('./categorization.service');
 const { safeCreateBatchEventNotifications } = require('../../services/notificationService');
 const { isGeminiAvailable, generateContent } = require('../../utils/gemini');
 const { getEventImage } = require('../../utils/imageHelper');
+const { isValidCoordinate } = require('../../utils/geocoder');
 
 let isSyncRunning = false;
 
@@ -51,6 +52,8 @@ const runAggregation = async (actorUserId = null) => {
       normalized: 0,
       duplicates: 0,
       inserted: 0,
+      geocoded: 0,
+      geocodeFailed: 0,
       errors: [],
     },
     unstop: {
@@ -58,6 +61,8 @@ const runAggregation = async (actorUserId = null) => {
       normalized: 0,
       duplicates: 0,
       inserted: 0,
+      geocoded: 0,
+      geocodeFailed: 0,
       errors: [],
     },
   };
@@ -167,14 +172,38 @@ const runAggregation = async (actorUserId = null) => {
           eventData.source
         );
 
-        // Sanitize location so GeoJSON index is never given invalid structure
-        if (!eventData.location || !eventData.location.type || !Array.isArray(eventData.location.coordinates) || eventData.location.coordinates.length < 2) {
-          delete eventData.location;
+        // Validate and sanitize location field
+        if (eventData.location) {
+          const isValidGeoJSON =
+            eventData.location.type === 'Point' &&
+            Array.isArray(eventData.location.coordinates) &&
+            eventData.location.coordinates.length === 2 &&
+            isValidCoordinate(eventData.location.coordinates[1], eventData.location.coordinates[0]);
+
+          if (!isValidGeoJSON) {
+            console.warn(`[Aggregation] Invalid GeoJSON location for ${eventData.title}, removing location field`);
+            delete eventData.location;
+          }
         }
 
         const newEvent = new Event(eventData);
         await newEvent.save();
         insertedEvents.push(newEvent);
+
+        // Track geocoding statistics
+        if (newEvent.location && newEvent.location.type === 'Point') {
+          if (newEvent.tags?.includes('devfolio')) {
+            sourceStats.devfolio.geocoded++;
+          } else if (newEvent.tags?.includes('unstop')) {
+            sourceStats.unstop.geocoded++;
+          }
+        } else {
+          if (newEvent.tags?.includes('devfolio')) {
+            sourceStats.devfolio.geocodeFailed++;
+          } else if (newEvent.tags?.includes('unstop')) {
+            sourceStats.unstop.geocodeFailed++;
+          }
+        }
 
         if (newEvent.tags?.includes('devfolio')) {
           sourceStats.devfolio.inserted++;

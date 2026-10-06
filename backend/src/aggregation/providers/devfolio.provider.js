@@ -1,7 +1,8 @@
 const axios = require('axios');
 const { cleanText } = require('../utils/textCleaner');
+const { geocodeLocation, shouldGeocode, isValidCoordinate } = require('../../utils/geocoder');
 
-const parseDevfolioItem = (item, cutoffDate, now) => {
+const parseDevfolioItem = async (item, cutoffDate, now) => {
   const source = item?._source;
   if (!source) return null;
 
@@ -49,6 +50,25 @@ const parseDevfolioItem = (item, cutoffDate, now) => {
   if (startDate < regnDeadline) startDate = new Date(regnDeadline.getTime());
   if (endDate < startDate) endDate = new Date(startDate.getTime());
 
+  // Geocode location for offline events
+  let location = null;
+  let locationName = venue;
+  if (shouldGeocode(venue, mode)) {
+    try {
+      const coords = await geocodeLocation(venue);
+      if (coords && isValidCoordinate(coords.latitude, coords.longitude)) {
+        location = {
+          type: 'Point',
+          coordinates: [coords.longitude, coords.latitude],
+        };
+        locationName = coords.displayName;
+      }
+    } catch (error) {
+      // Geocoding failed - save event without coordinates
+      console.warn(`[Devfolio] Geocoding failed for ${title}: ${error.message}`);
+    }
+  }
+
   return {
     title,
     description: descriptionText,
@@ -62,6 +82,8 @@ const parseDevfolioItem = (item, cutoffDate, now) => {
     registrationDeadline: regnDeadline,
     mode,
     venue,
+    locationName,
+    location,
     image: image || `https://picsum.photos/seed/${encodeURIComponent(title)}/800/400`,
     eventLink: link,
     isVerified: true,
@@ -103,7 +125,7 @@ const fetchDevfolioEvents = async () => {
       : (typeof firstRes.data?.hits?.total === 'number' ? firstRes.data.hits.total : MAX_FETCH);
 
     for (const item of firstHits) {
-      const parsed = parseDevfolioItem(item, cutoffDate, now);
+      const parsed = await parseDevfolioItem(item, cutoffDate, now);
       if (parsed) events.push(parsed);
     }
     console.log(`[Devfolio] Offset 0: ${firstHits.length} hits received, total available: ${totalHits}`);
@@ -130,7 +152,8 @@ const fetchDevfolioEvents = async () => {
               }
             );
             const hits = res.data?.hits?.hits || [];
-            return hits.map((item) => parseDevfolioItem(item, cutoffDate, now)).filter(Boolean);
+            const parsedItems = await Promise.all(hits.map((item) => parseDevfolioItem(item, cutoffDate, now)));
+            return parsedItems.filter(Boolean);
           } catch (err) {
             console.warn(`[Devfolio] Failed offset ${from}: ${err.message}`);
             return [];

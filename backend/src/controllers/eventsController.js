@@ -1,51 +1,7 @@
 const mongoose = require('mongoose');
 const Event = require('../models/Event');
 const { safeCreateEventNotifications } = require('../services/notificationService');
-
-const haversineDistanceKm = (lat1, lon1, lat2, lon2) => {
-  const toRad = (value) => (value * Math.PI) / 180;
-  const earthRadiusKm = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return earthRadiusKm * c;
-};
-
-const geocodeLocation = async (locationName) => {
-  if (!locationName || !locationName.trim()) {
-    return null;
-  }
-
-  const query = encodeURIComponent(locationName.trim());
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${query}`;
-
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'EventSync/1.0',
-      Accept: 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Unable to resolve this location.');
-  }
-
-  const results = await response.json();
-  if (!Array.isArray(results) || results.length === 0) {
-    return null;
-  }
-
-  const match = results[0];
-  return {
-    latitude: Number(match.lat),
-    longitude: Number(match.lon),
-    displayName: match.display_name || locationName.trim(),
-  };
-};
+const { geocodeLocation, isValidCoordinate } = require('../utils/geocoder');
 
 const getEvents = async (req, res) => {
   try {
@@ -60,24 +16,39 @@ const getEvents = async (req, res) => {
     const college = req.query.college?.trim();
     const source = req.query.source?.trim().toLowerCase();
     const locationName = req.query.locationName?.trim();
-    const radiusKm = Number(req.query.radiusKm) || 100;
+    const radiusKm = Math.min(Math.max(Number(req.query.radiusKm) || 100, 1), 5000);
     const latitude = Number(req.query.latitude);
     const longitude = Number(req.query.longitude);
-    const locationSearchActive = Boolean(locationName || (Number.isFinite(latitude) && Number.isFinite(longitude)));
-    const usingGeospatial = Number.isFinite(latitude) && Number.isFinite(longitude);
+
+    // Determine search mode
+    const hasCoordinates = isValidCoordinate(latitude, longitude);
+    const hasLocationName = Boolean(locationName);
+    const locationSearchActive = hasCoordinates || hasLocationName;
 
     let resolvedLocation = null;
+    let usedGeospatialSearch = false;
+    let usedTextSearch = false;
+
+    // Resolve location for search
     if (locationSearchActive) {
-      if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+      if (hasCoordinates) {
+        // Mode 1: Geographic radius search with provided coordinates
         resolvedLocation = { latitude, longitude };
-      } else {
+        usedGeospatialSearch = true;
+      } else if (hasLocationName) {
+        // Mode 2: Try to geocode the location name
         resolvedLocation = await geocodeLocation(locationName);
-        if (!resolvedLocation) {
-          return res.status(400).json({ message: 'Location not found. Try a city, area, or nearby landmark.' });
+        if (resolvedLocation) {
+          // Geocoding succeeded - fall back to geographic radius search
+          usedGeospatialSearch = true;
+        } else {
+          // Geocoding failed - fall back to text-based venue search
+          usedTextSearch = true;
         }
       }
     }
 
+    // Build base filter
     const filter = {
       isVerified: true,
       registrationDeadline: { $gte: threeDaysAgo },
@@ -85,6 +56,7 @@ const getEvents = async (req, res) => {
 
     const andConditions = [];
 
+    // Search filter
     if (search) {
       andConditions.push({
         $or: [
@@ -97,18 +69,22 @@ const getEvents = async (req, res) => {
       });
     }
 
+    // Category filter
     if (category) {
       filter.category = category;
     }
 
+    // Mode filter
     if (mode) {
       filter.mode = mode;
     }
 
+    // College filter
     if (college) {
       filter.college = { $regex: college, $options: 'i' };
     }
 
+    // Source filter
     if (['devfolio', 'unstop', 'manual'].includes(source)) {
       if (source === 'manual') {
         filter.source = 'manual';
@@ -124,19 +100,28 @@ const getEvents = async (req, res) => {
       }
     }
 
+    // Location filter
     if (locationSearchActive) {
-      // First try geospatial search if coordinates are available
-      if (usingGeospatial) {
-        const radiusInRadians = Math.min(Math.max(Number(radiusKm) || 100, 1), 5000) / 6378.1;
+      if (usedGeospatialSearch && resolvedLocation) {
+        // Geographic radius search using $near
+        // $near automatically sorts by distance and enforces maxDistance
         filter.location = {
-          $geoWithin: {
-            $centerSphere: [[resolvedLocation.longitude, resolvedLocation.latitude], radiusInRadians],
+          $near: {
+            $geometry: {
+              type: 'Point',
+              coordinates: [resolvedLocation.longitude, resolvedLocation.latitude],
+            },
+            $maxDistance: radiusKm * 1000, // Convert km to meters
           },
         };
-      } else if (locationName) {
-        // Fallback: search by venue field when locationName is provided
-        // This handles the case where events don't have GeoJSON coordinates
-        filter.venue = { $regex: locationName, $options: 'i' };
+      } else if (usedTextSearch && locationName) {
+        // Text-based venue search fallback
+        andConditions.push({
+          $or: [
+            { venue: { $regex: locationName, $options: 'i' } },
+            { locationName: { $regex: locationName, $options: 'i' } },
+          ],
+        });
       }
     }
 
@@ -144,75 +129,79 @@ const getEvents = async (req, res) => {
       filter.$and = andConditions;
     }
 
-    let allEvents = await Event.find(filter).populate('createdBy', 'name email role college');
+    // Execute query
+    let query = Event.find(filter).populate('createdBy', 'name email role college');
 
-    // Only apply geospatial filtering if we have actual coordinates
-    if (locationSearchActive && resolvedLocation && usingGeospatial) {
-      allEvents = allEvents
-        .map((event) => {
-          if (!event.location || !Array.isArray(event.location.coordinates) || event.location.coordinates.length < 2) {
-            return null;
-          }
+    // For geospatial search, MongoDB automatically sorts by distance
+    // For text search, we'll need to sort later
+    let allEvents = await query;
 
-          const [eventLongitude, eventLatitude] = event.location.coordinates;
-          const distanceKm = haversineDistanceKm(
-            Number(eventLatitude),
-            Number(eventLongitude),
-            Number(resolvedLocation.latitude),
-            Number(resolvedLocation.longitude)
-          );
+    // Calculate distances for geospatial search results
+    if (usedGeospatialSearch && resolvedLocation) {
+      allEvents = allEvents.map((event) => {
+        if (!event.location || !Array.isArray(event.location.coordinates) || event.location.coordinates.length < 2) {
+          return null;
+        }
 
-          return {
-            ...event.toObject(),
-            distanceKm: Number(distanceKm.toFixed(1)),
-          };
-        })
-        .filter(Boolean)
-        .filter((event) => event.distanceKm <= (Number(radiusKm) || 100));
+        const [eventLongitude, eventLatitude] = event.location.coordinates;
+        const distanceKm = calculateDistanceKm(
+          resolvedLocation.latitude,
+          resolvedLocation.longitude,
+          eventLatitude,
+          eventLongitude
+        );
+
+        return {
+          ...event.toObject(),
+          distanceKm: Number(distanceKm.toFixed(1)),
+        };
+      }).filter(Boolean);
     }
 
+    // Sort events
     allEvents.sort((a, b) => {
       const aDeadline = new Date(a.registrationDeadline);
       const bDeadline = new Date(b.registrationDeadline);
       const aIsOpen = aDeadline >= now;
       const bIsOpen = bDeadline >= now;
 
-      if (locationSearchActive) {
+      if (usedGeospatialSearch) {
+        // For geospatial search, sort by distance first, then deadline
         const aDistance = Number(a.distanceKm ?? Number.MAX_SAFE_INTEGER);
         const bDistance = Number(b.distanceKm ?? Number.MAX_SAFE_INTEGER);
 
+        if (aDistance !== bDistance) return aDistance - bDistance;
+
+        // Same distance: prioritize open events
+        if (aIsOpen && !bIsOpen) return -1;
+        if (!aIsOpen && bIsOpen) return 1;
+
+        // Both open or both closed: sort by deadline
+        if (aIsOpen && bIsOpen) {
+          return aDeadline.getTime() - bDeadline.getTime();
+        }
+        if (!aIsOpen && !bIsOpen) {
+          return bDeadline.getTime() - aDeadline.getTime();
+        }
+      } else {
+        // For non-geospatial search, prioritize open events, then deadline
         if (aIsOpen && !bIsOpen) return -1;
         if (!aIsOpen && bIsOpen) return 1;
 
         if (aIsOpen && bIsOpen) {
-          if (aDistance !== bDistance) return aDistance - bDistance;
           return aDeadline.getTime() - bDeadline.getTime();
         }
-
         if (!aIsOpen && !bIsOpen) {
-          if (aDistance !== bDistance) return aDistance - bDistance;
           return bDeadline.getTime() - aDeadline.getTime();
         }
-
-        return 0;
-      }
-
-      if (aIsOpen && !bIsOpen) return -1;
-      if (!aIsOpen && bIsOpen) return 1;
-
-      if (aIsOpen && bIsOpen) {
-        return aDeadline.getTime() - bDeadline.getTime();
-      }
-
-      if (!aIsOpen && !bIsOpen) {
-        return bDeadline.getTime() - aDeadline.getTime();
       }
 
       return 0;
     });
 
+    // Boost user's college events (only for non-geospatial search)
     const userCollege = req.user?.college;
-    if (userCollege && !locationSearchActive) {
+    if (userCollege && !usedGeospatialSearch) {
       allEvents.sort((a, b) => {
         const aMatches = a.college && a.college.trim().toLowerCase() === userCollege.trim().toLowerCase();
         const bMatches = b.college && b.college.trim().toLowerCase() === userCollege.trim().toLowerCase();
@@ -222,6 +211,7 @@ const getEvents = async (req, res) => {
       });
     }
 
+    // Pagination
     const totalEvents = allEvents.length;
     const events = allEvents.slice(skip, skip + limit);
     const categories = await Event.distinct('category', { isVerified: true });
@@ -248,10 +238,11 @@ const getEvents = async (req, res) => {
       locationSearch: locationSearchActive
         ? {
             active: true,
+            searchMode: usedGeospatialSearch ? 'geospatial' : 'text',
             locationName: resolvedLocation?.displayName || locationName || 'Your location',
-            radiusKm: Number(radiusKm) || 100,
-            latitude: (Number.isFinite(latitude) && Number.isFinite(longitude)) ? latitude : null,
-            longitude: (Number.isFinite(latitude) && Number.isFinite(longitude)) ? longitude : null,
+            radiusKm: usedGeospatialSearch ? radiusKm : null,
+            latitude: usedGeospatialSearch && resolvedLocation ? resolvedLocation.latitude : null,
+            longitude: usedGeospatialSearch && resolvedLocation ? resolvedLocation.longitude : null,
           }
         : { active: false },
     });
@@ -261,6 +252,27 @@ const getEvents = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+/**
+ * Calculate distance between two coordinates using Haversine formula
+ * @param {number} lat1 - Latitude of point 1
+ * @param {number} lon1 - Longitude of point 1
+ * @param {number} lat2 - Latitude of point 2
+ * @param {number} lon2 - Longitude of point 2
+ * @returns {number} Distance in kilometers
+ */
+const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
+  const toRad = (value) => (value * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusKm * c;
 };
 
 const getEventById = async (req, res) => {
@@ -309,6 +321,8 @@ const createEvent = async (req, res) => {
       image,
       eventLink,
       isPublic,
+      latitude,
+      longitude,
     } = req.body;
 
     if (!title || !description || !organizer || !college || !category || !startDate || !endDate || !registrationDeadline || !mode) {
@@ -330,6 +344,20 @@ const createEvent = async (req, res) => {
       return res.status(400).json({ message: 'Registration deadline cannot be after the event start date.' });
     }
 
+    // Validate coordinates if provided
+    let location = null;
+    if (latitude !== undefined || longitude !== undefined) {
+      if (!isValidCoordinate(Number(latitude), Number(longitude))) {
+        return res.status(400).json({
+          message: 'Invalid coordinates. Latitude must be between -90 and 90, longitude must be between -180 and 180.',
+        });
+      }
+      location = {
+        type: 'Point',
+        coordinates: [Number(longitude), Number(latitude)],
+      };
+    }
+
     const newEvent = new Event({
       title,
       description,
@@ -348,6 +376,7 @@ const createEvent = async (req, res) => {
       isVerified: true,
       isPublic: isPublic === true || isPublic === 'true',
       createdBy: req.user._id,
+      location,
     });
 
     await newEvent.save();
