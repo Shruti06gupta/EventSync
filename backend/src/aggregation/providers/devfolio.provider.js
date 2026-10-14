@@ -31,7 +31,8 @@ const parseDevfolioItem = async (item, cutoffDate, now) => {
   if (!descriptionText) {
     descriptionText = `Join ${title} on Devfolio!`;
   }
-  descriptionText = descriptionText.length > 800 ? descriptionText.substring(0, 797) + '...' : descriptionText;
+  // Remove truncation to preserve complete Markdown descriptions
+  // Frontend will handle display length if needed
 
   const venue = source.location || source.city || 'Online';
   let mode = 'Offline';
