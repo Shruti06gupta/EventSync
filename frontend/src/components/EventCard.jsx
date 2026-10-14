@@ -138,12 +138,12 @@ export default function EventCard({
         </h3>
 
         {/* Description */}
-        <div className="mt-2.5 line-clamp-2 flex-1 text-sm text-brand-muted leading-relaxed">
+        <div className="mt-2.5 line-clamp-2 flex-1 text-sm text-slate-600 leading-relaxed">
           {event.description ? (
             <ReactMarkdown
               components={{
-                p: ({ children }) => <>{children}</>,
-                strong: ({ children }) => <span className="font-semibold">{children}</span>,
+                p: ({ children }) => <span className="inline">{children}</span>,
+                strong: ({ children }) => <span className="font-semibold text-slate-800">{children}</span>,
                 em: ({ children }) => <span className="italic">{children}</span>,
                 a: ({ href, children }) => (
                   <a href={href} target="_blank" rel="noopener noreferrer" className="text-brand-teal hover:underline">

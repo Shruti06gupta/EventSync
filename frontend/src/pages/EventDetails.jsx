@@ -230,22 +230,23 @@ export default function EventDetails() {
 
             {/* Description */}
             <div className="mt-6">
-              <h2 className="text-lg font-bold text-brand-text">About This Event</h2>
-              <div className="mt-3 text-base text-brand-muted leading-relaxed prose prose-slate max-w-none">
+              <h2 className="text-xl font-bold text-brand-text mb-4">About This Event</h2>
+              <div className="max-w-none">
                 {event.description ? (
                   <ReactMarkdown
                     components={{
-                      h1: ({ children }) => <h1 className="text-2xl font-bold mb-4">{children}</h1>,
-                      h2: ({ children }) => <h2 className="text-xl font-bold mb-3">{children}</h2>,
-                      h3: ({ children }) => <h3 className="text-lg font-bold mb-2">{children}</h3>,
-                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                      em: ({ children }) => <em className="italic">{children}</em>,
-                      p: ({ children }) => <p className="mb-4">{children}</p>,
-                      ul: ({ children }) => <ul className="list-disc list-inside mb-4">{children}</ul>,
-                      ol: ({ children }) => <ol className="list-decimal list-inside mb-4">{children}</ol>,
-                      li: ({ children }) => <li className="mb-1">{children}</li>,
+                      h1: ({ children }) => <h1 className="text-2xl font-bold text-brand-text mt-6 mb-4 first:mt-0">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-xl font-bold text-brand-text mt-5 mb-3 first:mt-0">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-lg font-semibold text-brand-text mt-4 mb-2 first:mt-0">{children}</h3>,
+                      h4: ({ children }) => <h4 className="text-base font-semibold text-brand-text mt-3 mb-2 first:mt-0">{children}</h4>,
+                      strong: ({ children }) => <strong className="font-semibold text-slate-900">{children}</strong>,
+                      em: ({ children }) => <em className="italic text-slate-700">{children}</em>,
+                      p: ({ children }) => <p className="mb-4 text-[15px] text-slate-700 leading-[1.7] font-normal">{children}</p>,
+                      ul: ({ children }) => <ul className="list-disc list-inside mb-4 pl-4 space-y-1 text-[15px] text-slate-700 leading-[1.7]">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-inside mb-4 pl-4 space-y-1 text-[15px] text-slate-700 leading-[1.7]">{children}</ol>,
+                      li: ({ children }) => <li className="mb-1 text-[15px] text-slate-700 leading-[1.7]">{children}</li>,
                       a: ({ href, children }) => (
-                        <a href={href} target="_blank" rel="noopener noreferrer" className="text-brand-teal hover:underline">
+                        <a href={href} target="_blank" rel="noopener noreferrer" className="text-brand-teal font-medium hover:underline hover:text-brand-teal-dark transition">
                           {children}
                         </a>
                       ),
@@ -254,12 +255,17 @@ export default function EventDetails() {
                           {children}
                         </code>
                       ),
+                      blockquote: ({ children }) => (
+                        <blockquote className="border-l-4 border-slate-300 pl-4 italic text-slate-600 my-4">
+                          {children}
+                        </blockquote>
+                      ),
                     }}
                   >
                     {event.description}
                   </ReactMarkdown>
                 ) : (
-                  'No description available for this event.'
+                  <p className="text-slate-500 italic">No description available for this event.</p>
                 )}
               </div>
             </div>
