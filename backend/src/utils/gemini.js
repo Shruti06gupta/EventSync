@@ -1,6 +1,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 let genAI = null;
+let authErrorLogged = false;
 
 if (process.env.GEMINI_API_KEY) {
   try {
@@ -45,6 +46,11 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
  * @returns {Promise<string|null>} The response text or null on error
  */
 const generateContent = async (prompt, options = {}) => {
+  // Check if Gemini has been disabled due to auth errors
+  if (authErrorLogged) {
+    return null;
+  }
+
   const primaryModel = options.modelName || 'gemini-3.5-flash';
   const timeout = options.timeout || 8000; // 8 second timeout
   const fallbackModels = [
@@ -77,6 +83,22 @@ const generateContent = async (prompt, options = {}) => {
       console.log(`[Gemini] Model ${modelName} succeeded in ${modelTime}ms`);
       return response.text();
     } catch (error) {
+      // Detect authentication errors (API_KEY_INVALID, 400 Bad Request)
+      const isAuthError = error.message?.includes('API_KEY_INVALID') ||
+                          error.message?.includes('API key not valid') ||
+                          error.message?.includes('400 Bad Request');
+
+      if (isAuthError) {
+        if (!authErrorLogged) {
+          console.error('[Gemini] AUTHENTICATION ERROR: Invalid or missing GEMINI_API_KEY');
+          console.error('[Gemini] Gemini will be disabled for this session.');
+          console.error('[Gemini] To fix: Add a valid GEMINI_API_KEY to backend/.env');
+          console.error('[Gemini] Get an API key from: https://aistudio.google.com/app/apikey');
+          authErrorLogged = true;
+        }
+        return null; // Don't retry on auth errors
+      }
+
       const is503 = error.message?.includes('503') || error.message?.includes('high demand');
       const isTimeout = error.message === 'Request timeout';
 
