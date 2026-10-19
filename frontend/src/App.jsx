@@ -8,6 +8,7 @@ import ResetPassword from './pages/ResetPassword'
 import Profile from './pages/Profile'
 import Events from './pages/Events'
 import EventDetails from './pages/EventDetails'
+import Recommendations from './pages/Recommendations'
 import Bookmarks from './pages/Bookmarks'
 import ManageEvents from './pages/ManageEvents'
 import AdminDashboard from './pages/AdminDashboard'
@@ -38,6 +39,7 @@ export default function App() {
               <Route path="/profile" element={<ProtectedRoute><CenteredLayout><Profile /></CenteredLayout></ProtectedRoute>} />
               <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
               <Route path="/events/:id" element={<ProtectedRoute><EventDetails /></ProtectedRoute>} />
+              <Route path="/recommendations" element={<ProtectedRoute><Recommendations /></ProtectedRoute>} />
               <Route path="/bookmarks" element={<ProtectedRoute><Bookmarks /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />
               <Route path="/manage" element={<ProtectedRoute><AdminRoute><ManageEvents /></AdminRoute></ProtectedRoute>} />

@@ -70,6 +70,8 @@ export default function EventCard({
   showFullActions = true,
   className = '',
   distanceKm,
+  matchScore,
+  matchReason,
 }) {
   if (!event) return null
 
@@ -109,8 +111,13 @@ export default function EventCard({
           )}
         </div>
 
-        {/* Mode & Deadline Top Right */}
+        {/* Mode & Deadline & Match Score Top Right */}
         <div className="absolute right-3 top-3 flex flex-col items-end gap-1.5">
+          {matchScore !== undefined && matchScore !== null && (
+            <span className="rounded-full border border-emerald-400/80 bg-emerald-600/90 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm backdrop-blur-md">
+              {typeof matchScore === 'number' ? `${Math.round(matchScore)}% Match` : matchScore}
+            </span>
+          )}
           {event.mode && (
             <span
               className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold backdrop-blur-md shadow-sm ${getModeBadgeClass(
@@ -138,12 +145,12 @@ export default function EventCard({
         </h3>
 
         {/* Description */}
-        <div className="mt-2.5 line-clamp-2 flex-1 text-sm text-brand-muted leading-relaxed">
+        <div className="mt-2.5 line-clamp-2 flex-1 text-sm text-slate-600 leading-relaxed">
           {event.description ? (
             <ReactMarkdown
               components={{
-                p: ({ children }) => <>{children}</>,
-                strong: ({ children }) => <span className="font-semibold">{children}</span>,
+                p: ({ children }) => <span className="inline">{children}</span>,
+                strong: ({ children }) => <span className="font-semibold text-slate-800">{children}</span>,
                 em: ({ children }) => <span className="italic">{children}</span>,
                 a: ({ href, children }) => (
                   <a href={href} target="_blank" rel="noopener noreferrer" className="text-brand-teal hover:underline">
@@ -159,8 +166,25 @@ export default function EventCard({
           )}
         </div>
 
+        {/* Match Reason (Recommendation explanation) */}
+        {matchReason && (
+          <div className="mt-3.5 flex items-start gap-2 rounded-xl border border-teal-100 bg-teal-50/70 p-2.5 text-xs text-teal-800">
+            <span className="shrink-0 text-sm">💡</span>
+            <span className="font-medium leading-snug">{matchReason}</span>
+          </div>
+        )}
+
         {/* Meta Info */}
         <div className="mt-4 space-y-2 border-t border-slate-100 pt-3 text-xs text-slate-600">
+          {(event.locationName || event.venue) && event.mode !== 'Online' && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium text-slate-500">Location:</span>
+              <span className="font-medium text-slate-700 truncate max-w-[65%] text-right">
+                📍 {event.locationName || event.venue}
+              </span>
+            </div>
+          )}
+
           {distanceKm !== undefined && distanceKm !== null && Number.isFinite(Number(distanceKm)) && (
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium text-slate-500">Distance:</span>

@@ -181,6 +181,9 @@ export default function Navbar() {
           <NavLink to="/events" className={navLinkClass}>
             Events
           </NavLink>
+          <NavLink to="/recommendations" className={navLinkClass}>
+            Recommendations
+          </NavLink>
           {user && user.role !== 'admin' && (
             <NavLink to="/bookmarks" className={navLinkClass}>
               Bookmarks
@@ -461,6 +464,9 @@ export default function Navbar() {
           <div className="flex flex-col space-y-1">
             <NavLink to="/events" className={mobileNavLinkClass}>
               Explore Events
+            </NavLink>
+            <NavLink to="/recommendations" className={mobileNavLinkClass}>
+              Recommendations
             </NavLink>
             {user && user.role !== 'admin' && (
               <NavLink to="/bookmarks" className={mobileNavLinkClass}>
