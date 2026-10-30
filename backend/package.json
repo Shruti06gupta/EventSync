@@ -12,7 +12,10 @@
     "verify:notifications": "node src/scripts/verifyNotificationsFlow.js",
     "verify:admin-registration": "node src/scripts/verifyAdminRegistration.js",
     "verify:deadline-reminders": "node src/scripts/verifyDeadlineReminders.js",
-    "verify:admin-dashboard": "node src/scripts/verifyAdminDashboard.js"
+    "verify:admin-dashboard": "node src/scripts/verifyAdminDashboard.js",
+    "verify:recommendation-scoring": "node src/scripts/verifyRecommendationScoring.js",
+    "verify:recommendation-api": "node src/scripts/verifyRecommendationAPI.js",
+    "verify:step8-qa": "node src/scripts/verifyStep8QA.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

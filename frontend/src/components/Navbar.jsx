@@ -181,13 +181,15 @@ export default function Navbar() {
           <NavLink to="/events" className={navLinkClass}>
             Events
           </NavLink>
-          <NavLink to="/recommendations" className={navLinkClass}>
-            Recommendations
-          </NavLink>
           {user && user.role !== 'admin' && (
-            <NavLink to="/bookmarks" className={navLinkClass}>
-              Bookmarks
-            </NavLink>
+            <>
+              <NavLink to="/recommendations" className={navLinkClass}>
+                Recommendations
+              </NavLink>
+              <NavLink to="/bookmarks" className={navLinkClass}>
+                Bookmarks
+              </NavLink>
+            </>
           )}
           {user && user.role === 'admin' && (
             <>
@@ -465,13 +467,15 @@ export default function Navbar() {
             <NavLink to="/events" className={mobileNavLinkClass}>
               Explore Events
             </NavLink>
-            <NavLink to="/recommendations" className={mobileNavLinkClass}>
-              Recommendations
-            </NavLink>
             {user && user.role !== 'admin' && (
-              <NavLink to="/bookmarks" className={mobileNavLinkClass}>
-                Bookmarks
-              </NavLink>
+              <>
+                <NavLink to="/recommendations" className={mobileNavLinkClass}>
+                  Recommendations
+                </NavLink>
+                <NavLink to="/bookmarks" className={mobileNavLinkClass}>
+                  Bookmarks
+                </NavLink>
+              </>
             )}
             {user && user.role === 'admin' && (
               <>
