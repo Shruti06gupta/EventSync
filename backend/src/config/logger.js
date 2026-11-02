@@ -41,23 +41,34 @@ const logger = winston.createLogger({
   ],
 });
 
-// Add file transport in production
+const fs = require('fs');
+const path = require('path');
+
+// Ensure logs directory exists if file logging is used
 if (process.env.NODE_ENV === 'production') {
-  logger.add(
-    new winston.transports.File({
-      filename: 'logs/error.log',
-      level: 'error',
-      maxsize: 5242880, // 5MB
-      maxFiles: 5,
-    })
-  );
-  logger.add(
-    new winston.transports.File({
-      filename: 'logs/combined.log',
-      maxsize: 5242880, // 5MB
-      maxFiles: 5,
-    })
-  );
+  try {
+    const logsDir = path.join(process.cwd(), 'logs');
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
+    logger.add(
+      new winston.transports.File({
+        filename: path.join(logsDir, 'error.log'),
+        level: 'error',
+        maxsize: 5242880, // 5MB
+        maxFiles: 5,
+      })
+    );
+    logger.add(
+      new winston.transports.File({
+        filename: path.join(logsDir, 'combined.log'),
+        maxsize: 5242880, // 5MB
+        maxFiles: 5,
+      })
+    );
+  } catch (err) {
+    console.error('Failed to initialize file logging transport:', err.message);
+  }
 }
 
 // Sanitize function to remove sensitive data from logs
@@ -66,21 +77,37 @@ const sanitize = (obj) => {
 
   const sensitiveKeys = [
     'password',
-    'passwordConfirmation',
-    'confirmPassword',
-    'newPassword',
-    'accessToken',
-    'refreshToken',
+    'passwordconfirmation',
+    'confirmpassword',
+    'newpassword',
+    'oldpassword',
+    'accesstoken',
+    'refreshtoken',
     'jwt',
     'secret',
-    'apiKey',
+    'apikey',
     'api_key',
     'token',
     'cookie',
     'authorization',
-    'authorizationHeader',
+    'authorizationheader',
     'x-access-token',
+    'resetotp',
+    'resettoken',
+    'admincode',
+    'admin_code',
+    'email_pass',
+    'emailpass',
+    'smtp',
+    'mongo_uri',
+    'mongouri',
+    'connectionstring',
+    'credentials',
   ];
+
+  if (Array.isArray(obj)) {
+    return obj.map((item) => sanitize(item));
+  }
 
   const sanitized = { ...obj };
 
@@ -88,7 +115,7 @@ const sanitize = (obj) => {
     const lowerKey = key.toLowerCase();
     if (sensitiveKeys.some((sk) => lowerKey.includes(sk))) {
       sanitized[key] = '[REDACTED]';
-    } else if (typeof sanitized[key] === 'object') {
+    } else if (typeof sanitized[key] === 'object' && sanitized[key] !== null) {
       sanitized[key] = sanitize(sanitized[key]);
     }
   }

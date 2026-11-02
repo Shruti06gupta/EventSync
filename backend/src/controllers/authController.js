@@ -3,10 +3,16 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { createAccessToken, createRefreshToken } = require('../utils/tokens');
 
+const sameSiteOption = process.env.COOKIE_SAME_SITE || (
+  process.env.NODE_ENV === 'production'
+    ? (process.env.CROSS_SITE_COOKIES === 'true' ? 'none' : 'strict')
+    : 'lax'
+);
+
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+  secure: process.env.NODE_ENV === 'production' || sameSiteOption === 'none',
+  sameSite: sameSiteOption,
 };
 
 const register = async (req, res) => {

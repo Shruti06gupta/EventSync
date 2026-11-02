@@ -18,47 +18,89 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
+let server;
+let isShuttingDown = false;
+
 // Graceful shutdown handler
-const gracefulShutdown = async (signal) => {
+const gracefulShutdown = async (signal, exitProcess = true) => {
+  if (isShuttingDown) {
+    logger.warn(`Shutdown already in progress. Ignoring duplicate signal: ${signal}`);
+    return;
+  }
+  isShuttingDown = true;
   logger.info(`${signal} received. Starting graceful shutdown...`);
 
-  // Stop accepting new connections
-  server.close(async (err) => {
-    if (err) {
-      logger.error('Error closing server', { error: err.message });
+  // Force shutdown after 10 seconds timeout to avoid hanging processes
+  const forceExitTimer = setTimeout(() => {
+    logger.error('Forced shutdown: graceful shutdown timed out after 10 seconds');
+    if (exitProcess) {
       process.exit(1);
     }
+  }, 10000);
 
-    logger.info('HTTP server closed');
+  // Unref timeout so it does not keep process open if everything finishes early
+  if (forceExitTimer.unref) {
+    forceExitTimer.unref();
+  }
 
+  const closeDatabase = async () => {
     try {
-      // Close MongoDB connection
       const mongoose = require('mongoose');
-      if (mongoose.connection.readyState !== 0) {
-        await mongoose.connection.close();
-        logger.info('MongoDB connection closed');
+      if (mongoose.connection && mongoose.connection.readyState !== 0) {
+        await mongoose.connection.close(false);
+        logger.info('MongoDB connection closed successfully');
+      }
+    } catch (dbErr) {
+      logger.error('Error closing MongoDB connection', { error: dbErr.message });
+      throw dbErr;
+    }
+  };
+
+  if (server && server.listening) {
+    // Close idle keep-alive connections (Node 18+) so requests finish without hanging
+    if (typeof server.closeIdleConnections === 'function') {
+      server.closeIdleConnections();
+    }
+
+    server.close(async (err) => {
+      if (err) {
+        logger.error('Error closing HTTP server', { error: err.message });
+        clearTimeout(forceExitTimer);
+        if (exitProcess) process.exit(1);
+        return;
       }
 
-      logger.info('Graceful shutdown completed');
-      process.exit(0);
-    } catch (error) {
-      logger.error('Error during shutdown', { error: error.message });
-      process.exit(1);
-    }
-  });
+      logger.info('HTTP server closed to new requests');
 
-  // Force shutdown after 10 seconds if graceful shutdown fails
-  setTimeout(() => {
-    logger.error('Forced shutdown after timeout');
-    process.exit(1);
-  }, 10000);
+      try {
+        await closeDatabase();
+        logger.info('Graceful shutdown completed cleanly');
+        clearTimeout(forceExitTimer);
+        if (exitProcess) process.exit(0);
+      } catch (shutdownError) {
+        logger.error('Error during database shutdown phase', { error: shutdownError.message });
+        clearTimeout(forceExitTimer);
+        if (exitProcess) process.exit(1);
+      }
+    });
+  } else {
+    // Server not running; close database directly
+    try {
+      await closeDatabase();
+      logger.info('Graceful shutdown completed (server was not active)');
+      clearTimeout(forceExitTimer);
+      if (exitProcess) process.exit(0);
+    } catch (shutdownError) {
+      logger.error('Error during direct shutdown', { error: shutdownError.message });
+      clearTimeout(forceExitTimer);
+      if (exitProcess) process.exit(1);
+    }
+  }
 };
 
-// Register shutdown handlers
+// Register signal listeners
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-let server;
 
 const startServer = () => {
   server = app.listen(PORT, () => {
@@ -77,8 +119,12 @@ const startServer = () => {
 
   connectDB().then(async (isDatabaseReady) => {
     if (isDatabaseReady) {
-      initScheduler();
-      initDeadlineCron();
+      if (process.env.DISABLE_SCHEDULER === 'true') {
+        logger.info('Schedulers disabled via DISABLE_SCHEDULER (no aggregation sync or deadline emails will run)');
+      } else {
+        initScheduler();
+        initDeadlineCron();
+      }
 
       // Verify SMTP connection (non-blocking)
       const { verifySmtpConnection } = require('./utils/emailService');

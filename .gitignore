@@ -39,6 +39,11 @@ admin-cookies.txt
 cookies.txt
 user-cookies.txt
 
+# Playwright artifacts
+frontend/test-results/
+frontend/playwright-report/
+frontend/e2e/.e2e-state.json
+
 # Test files and reports
 test-report.pdf
 backfill-progress.json
