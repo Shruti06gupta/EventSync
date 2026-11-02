@@ -24,4 +24,7 @@ export default defineConfig({
       '/chatbot': proxyToBackend,
     },
   },
+  optimizeDeps: {
+    include: ['react-easy-crop'],
+  },
 })

@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useAuth } from './AuthContext'
-import { getNotifications, markAsRead } from '../services/notifications'
+import { getNotifications, markAsRead, clearAllNotifications } from '../services/notifications'
 
 const NotificationsContext = createContext(null)
 
@@ -145,6 +145,24 @@ export function NotificationsProvider({ children }) {
     }
   }, [])
 
+  const clearAll = useCallback(async () => {
+    const previousNotifications = [...notifications]
+    setNotifications([])
+    setUnreadCount(0)
+
+    try {
+      await clearAllNotifications()
+    } catch (err) {
+      setNotifications(previousNotifications)
+      setUnreadCount(
+        previousNotifications.reduce((count, notification) => {
+          return notification.read ? count : count + 1
+        }, 0)
+      )
+      throw err
+    }
+  }, [notifications])
+
   const value = useMemo(
     () => ({
       notifications,
@@ -156,8 +174,9 @@ export function NotificationsProvider({ children }) {
       loadNotifications,
       refreshNotifications: loadNotifications,
       markNotificationAsRead,
+      clearAll,
     }),
-    [notifications, unreadCount, loading, error, liveToast, clearToast, loadNotifications, markNotificationAsRead]
+    [notifications, unreadCount, loading, error, liveToast, clearToast, loadNotifications, markNotificationAsRead, clearAll]
   )
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>

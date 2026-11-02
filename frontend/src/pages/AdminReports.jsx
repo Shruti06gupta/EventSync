@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { Helmet } from 'react-helmet-async'
 import api from '../api'
 import {
   StatCard,
@@ -92,16 +93,20 @@ export default function AdminReports() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-bg pb-12">
+    <>
+      <Helmet>
+        <title>Reports & Analytics | EventSync</title>
+      </Helmet>
+      <div className="min-h-screen bg-brand-bg pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8">
         {/* Page Header */}
         <div className="mb-8 rounded-3xl bg-gradient-to-r from-teal-700 to-emerald-600 p-8 text-white shadow-soft-xl">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-teal-100">Analytics</p>
-              <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Reports</h1>
+              <p className="text-xs font-bold uppercase tracking-widest text-teal-100">Admin Dashboard</p>
+              <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Reports & Analytics</h1>
               <p className="mt-3 max-w-2xl text-sm text-teal-100 sm:text-base">
-                Detailed analytics and insights about EventSync activity.
+                Track platform performance, event engagement, and user activity through actionable insights.
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -361,5 +366,6 @@ export default function AdminReports() {
         </SectionCard>
       </div>
     </div>
+    </>
   )
 }

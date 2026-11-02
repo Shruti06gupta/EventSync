@@ -44,12 +44,14 @@ export default function Navbar() {
     clearToast,
     loadNotifications,
     markNotificationAsRead,
+    clearAll,
   } = useNotifications()
 
   const [isNotifOpen, setIsNotifOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [visibleCount, setVisibleCount] = useState(6)
   const [actionError, setActionError] = useState('')
+  const [clearingAll, setClearingAll] = useState(false)
   const dropdownRef = useRef(null)
   const mobileMenuRef = useRef(null)
   const navigate = useNavigate()
@@ -131,6 +133,19 @@ export default function Navbar() {
     }
   }
 
+  const handleClearAll = async () => {
+    setActionError('')
+    setClearingAll(true)
+    try {
+      await clearAll()
+      setIsNotifOpen(false)
+    } catch (err) {
+      setActionError(err.response?.data?.message || 'Unable to clear notifications.')
+    } finally {
+      setClearingAll(false)
+    }
+  }
+
   const navLinkClass = ({ isActive }) =>
     `relative px-3.5 py-2 text-sm font-semibold transition-all duration-200 rounded-xl ${
       isActive
@@ -193,7 +208,7 @@ export default function Navbar() {
           )}
           {user && user.role === 'admin' && (
             <>
-              <NavLink to="/admin" className={navLinkClass}>
+              <NavLink to="/admin" end className={navLinkClass}>
                 Dashboard
               </NavLink>
               <NavLink to="/manage" className={navLinkClass}>
@@ -249,13 +264,25 @@ export default function Navbar() {
                             </span>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => loadNotifications()}
-                          className="text-xs text-white/80 hover:text-white underline"
-                        >
-                          Refresh
-                        </button>
+                        <div className="flex items-center gap-3">
+                          {notifications.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={handleClearAll}
+                              disabled={clearingAll}
+                              className="text-xs text-white/80 hover:text-white underline disabled:opacity-50"
+                            >
+                              {clearingAll ? 'Clearing...' : 'Clear All'}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => loadNotifications()}
+                            className="text-xs text-white/80 hover:text-white underline"
+                          >
+                            Refresh
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -479,7 +506,7 @@ export default function Navbar() {
             )}
             {user && user.role === 'admin' && (
               <>
-                <NavLink to="/admin" className={mobileNavLinkClass}>
+                <NavLink to="/admin" end className={mobileNavLinkClass}>
                   Admin Dashboard
                 </NavLink>
                 <NavLink to="/manage" className={mobileNavLinkClass}>
@@ -510,6 +537,18 @@ export default function Navbar() {
                     </span>
                   )}
                 </button>
+
+                {notifications.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAll}
+                    disabled={clearingAll}
+                    className="flex w-full items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                  >
+                    <span>🗑️</span>
+                    <span>{clearingAll ? 'Clearing...' : 'Clear All Notifications'}</span>
+                  </button>
+                )}
 
                 <button
                   type="button"

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import api from '../api'
 import {
   StatCard,
@@ -130,7 +131,11 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-bg pb-12">
+    <>
+      <Helmet>
+        <title>Admin Dashboard | EventSync</title>
+      </Helmet>
+      <div className="min-h-screen bg-brand-bg pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8">
         {/* Page Header */}
         <div className="mb-8 rounded-3xl bg-gradient-to-r from-teal-700 to-emerald-600 p-8 text-white shadow-soft-xl">
@@ -335,5 +340,6 @@ export default function AdminDashboard() {
       </div>
       </div>
     </div>
+    </>
   )
 }

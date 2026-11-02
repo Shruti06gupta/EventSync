@@ -27,7 +27,6 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password })
     setUser(res.data.user)
-    setLoading(false)
     return res.data
   }
 
@@ -39,7 +38,6 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     await api.post('/auth/logout')
     setUser(null)
-    setLoading(false)
   }
 
   return (
