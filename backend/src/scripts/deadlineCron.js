@@ -11,6 +11,8 @@ const {
   hasEmailNotificationsEnabled,
 } = require('../utils/notificationRecipients');
 
+const { logger } = require('../config/logger');
+
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
@@ -37,7 +39,7 @@ const logReminderAttempt = ({ eventId, userId, stage, recipient, status, reason 
     details.push(`reason=${reason}`);
   }
 
-  console.log(details.join(' '));
+  logger.info(details.join(' '));
 };
 
 const getReminderStage = (timeToDeadlineMs) => {
@@ -298,17 +300,17 @@ const processDeadlineReminders = async (options = {}) => {
       }
     }
 
-    console.log(
+    logger.info(
       `[Cron] Job completed. Notifications: ${notificationsCreated}, Emails: ${emailsSent}, Duplicates skipped: ${duplicatesSkipped}, Invalid recipients skipped: ${invalidRecipientsSkipped}, Email failures: ${emailFailures}`
     );
   } catch (error) {
-    console.error('[Cron] Fatal error in deadline reminder job:', error);
+    logger.error('[Cron] Fatal error in deadline reminder job', { error: error.message });
   }
 };
 
 const initDeadlineCron = () => {
   cron.schedule('0 * * * *', processDeadlineReminders);
-  console.log('Deadline Reminder Cron Job initialized.');
+  logger.info('Deadline Reminder Cron Job initialized.');
 };
 
 module.exports = {

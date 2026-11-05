@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
+import ImageCrop from '../components/ImageCrop'
 
 const getInitials = (name) => {
   if (!name) return 'A'
@@ -30,6 +31,8 @@ export default function AdminProfile() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState(null)
   const [messageType, setMessageType] = useState('')
+  const [showCropModal, setShowCropModal] = useState(false)
+  const [imageToCrop, setImageToCrop] = useState(null)
 
   useEffect(() => {
     if (user) {
@@ -46,22 +49,38 @@ export default function AdminProfile() {
     const file = event.target.files[0]
     if (!file) return
 
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      setMessage('Please upload a valid image file (JPG, JPEG, PNG, or WEBP).')
+      setMessageType('error')
+      return
+    }
+
+    const maxSize = 5 * 1024 * 1024
+    if (file.size > maxSize) {
+      setMessage('Image size must be less than 5MB.')
+      setMessageType('error')
+      return
+    }
+
     const reader = new FileReader()
     reader.onload = (loadEvent) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = 150
-        canvas.height = 150
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(img, 0, 0, 150, 150)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
-        setPreview(dataUrl)
-        setForm((prev) => ({ ...prev, profilePicture: dataUrl }))
-      }
-      img.src = loadEvent.target.result
+      setImageToCrop(loadEvent.target.result)
+      setShowCropModal(true)
     }
     reader.readAsDataURL(file)
+  }
+
+  const handleCropComplete = (croppedImage) => {
+    setPreview(croppedImage)
+    setForm((prev) => ({ ...prev, profilePicture: croppedImage }))
+    setShowCropModal(false)
+    setImageToCrop(null)
+  }
+
+  const handleCropCancel = () => {
+    setShowCropModal(false)
+    setImageToCrop(null)
   }
 
   const handleDeletePicture = () => {
@@ -116,9 +135,11 @@ export default function AdminProfile() {
 
             <div className="mx-auto mt-6 flex h-32 w-32 items-center justify-center overflow-hidden rounded-full bg-white text-3xl font-bold text-brand-indigo shadow-lg ring-4 ring-white/30">
               {preview ? (
-                <img src={preview} alt={user?.name} className="h-full w-full object-cover" />
+                <img src={preview} alt={user?.name} className="h-full w-full object-cover rounded-full" />
               ) : (
-                getInitials(user?.name)
+                <span className="flex h-full w-full items-center justify-center bg-brand-indigo-subtle rounded-full">
+                  {getInitials(user?.name)}
+                </span>
               )}
             </div>
 
@@ -232,11 +253,13 @@ export default function AdminProfile() {
             <section className="rounded-2xl border border-slate-100 p-5">
               <h2 className="text-sm font-bold uppercase tracking-wider text-brand-teal">Profile Photo</h2>
               <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
-                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-brand-teal-subtle text-lg font-bold text-brand-teal">
+                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-brand-teal-subtle text-lg font-bold text-brand-teal">
                   {preview ? (
-                    <img src={preview} alt={user?.name} className="h-full w-full object-cover" />
+                    <img src={preview} alt={user?.name} className="h-full w-full object-cover rounded-full" />
                   ) : (
-                    getInitials(user?.name)
+                    <span className="flex h-full w-full items-center justify-center">
+                      {getInitials(user?.name)}
+                    </span>
                   )}
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -316,6 +339,14 @@ export default function AdminProfile() {
             </section>
           </div>
         </div>
+
+        {showCropModal && imageToCrop && (
+          <ImageCrop
+            image={imageToCrop}
+            onCropComplete={handleCropComplete}
+            onCancel={handleCropCancel}
+          />
+        )}
       </div>
     </div>
   )

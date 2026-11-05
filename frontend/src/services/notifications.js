@@ -9,3 +9,8 @@ export const markAsRead = async (id) => {
   const res = await api.patch(`/notifications/${id}/read`)
   return res.data
 }
+
+export const clearAllNotifications = async () => {
+  const res = await api.delete('/notifications')
+  return res.data
+}

@@ -9,24 +9,34 @@
     "dev": "nodemon src/server.js",
     "seed:events": "node src/seeders/seedEvents.js",
     "seed:notifications": "node src/seeders/seedNotifications.js",
+    "test": "node src/scripts/verifyProductionHardening.js && node src/scripts/verifyShutdown.js",
+    "verify:production-hardening": "node src/scripts/verifyProductionHardening.js",
+    "verify:shutdown": "node src/scripts/verifyShutdown.js",
     "verify:notifications": "node src/scripts/verifyNotificationsFlow.js",
     "verify:admin-registration": "node src/scripts/verifyAdminRegistration.js",
     "verify:deadline-reminders": "node src/scripts/verifyDeadlineReminders.js",
-    "verify:admin-dashboard": "node src/scripts/verifyAdminDashboard.js"
+    "verify:admin-dashboard": "node src/scripts/verifyAdminDashboard.js",
+    "verify:recommendation-scoring": "node src/scripts/verifyRecommendationScoring.js",
+    "verify:recommendation-api": "node src/scripts/verifyRecommendationAPI.js",
+    "verify:isolation": "node src/scripts/verifyIsolation.js --apply-isolated",
+    "verify:step8-qa": "node src/scripts/verifyStep8QA.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "axios": "^1.18.1",
-    "bcrypt": "^5.1.1",
+    "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.7.2",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.9.5",
     "node-cron": "^4.5.0",
     "nodemailer": "^6.10.0",
-    "pdfkit": "^0.19.1"
+    "pdfkit": "^0.19.1",
+    "winston": "^3.19.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

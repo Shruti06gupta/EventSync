@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
+import ImageCrop from '../components/ImageCrop'
 
 const formatRole = (role) => {
   if (!role) return 'User'
@@ -24,6 +25,8 @@ export default function UserProfile() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState(null)
   const [messageType, setMessageType] = useState('')
+  const [showCropModal, setShowCropModal] = useState(false)
+  const [imageToCrop, setImageToCrop] = useState(null)
 
   useEffect(() => {
     if (user) {
@@ -64,22 +67,38 @@ export default function UserProfile() {
     const file = e.target.files[0]
     if (!file) return
 
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      setMessage('Please upload a valid image file (JPG, JPEG, PNG, or WEBP).')
+      setMessageType('error')
+      return
+    }
+
+    const maxSize = 5 * 1024 * 1024
+    if (file.size > maxSize) {
+      setMessage('Image size must be less than 5MB.')
+      setMessageType('error')
+      return
+    }
+
     const reader = new FileReader()
     reader.onload = (event) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = 150
-        canvas.height = 150
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(img, 0, 0, 150, 150)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
-        setPreview(dataUrl)
-        setForm((prev) => ({ ...prev, profilePicture: dataUrl }))
-      }
-      img.src = event.target.result
+      setImageToCrop(event.target.result)
+      setShowCropModal(true)
     }
     reader.readAsDataURL(file)
+  }
+
+  const handleCropComplete = (croppedImage) => {
+    setPreview(croppedImage)
+    setForm((prev) => ({ ...prev, profilePicture: croppedImage }))
+    setShowCropModal(false)
+    setImageToCrop(null)
+  }
+
+  const handleCropCancel = () => {
+    setShowCropModal(false)
+    setImageToCrop(null)
   }
 
   const handleDeletePicture = () => {
@@ -186,9 +205,9 @@ export default function UserProfile() {
                   aria-label="Change profile photo"
                 >
                   {preview ? (
-                    <img src={preview} alt={user?.name} className="h-full w-full object-cover" />
+                    <img src={preview} alt={user?.name} className="h-full w-full object-cover rounded-full" />
                   ) : (
-                    <span className="flex h-full w-full items-center justify-center bg-brand-teal-subtle">
+                    <span className="flex h-full w-full items-center justify-center bg-brand-teal-subtle rounded-full">
                       {getInitials(user?.name)}
                     </span>
                   )}
@@ -425,6 +444,14 @@ export default function UserProfile() {
             })}
           </div>
         </section>
+
+        {showCropModal && imageToCrop && (
+          <ImageCrop
+            image={imageToCrop}
+            onCropComplete={handleCropComplete}
+            onCancel={handleCropCancel}
+          />
+        )}
       </div>
     </div>
   )

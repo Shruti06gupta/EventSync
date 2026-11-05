@@ -1,11 +1,18 @@
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { createAccessToken, createRefreshToken } = require('../utils/tokens');
 
+const sameSiteOption = process.env.COOKIE_SAME_SITE || (
+  process.env.NODE_ENV === 'production'
+    ? (process.env.CROSS_SITE_COOKIES === 'true' ? 'none' : 'strict')
+    : 'lax'
+);
+
 const cookieOptions = {
   httpOnly: true,
-  secure: false,
-  sameSite: 'lax',
+  secure: process.env.NODE_ENV === 'production' || sameSiteOption === 'none',
+  sameSite: sameSiteOption,
 };
 
 const register = async (req, res) => {
@@ -126,8 +133,45 @@ const logout = async (req, res) => {
   }
 };
 
+const refreshToken = async (req, res) => {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+
+    if (!refreshToken) {
+      return res.status(401).json({ message: 'No refresh token provided' });
+    }
+
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const user = await User.findById(decoded.id).select('-password');
+
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    const newAccessToken = createAccessToken(user._id);
+
+    res.cookie('accessToken', newAccessToken, cookieOptions);
+
+    return res.status(200).json({
+      message: 'Token refreshed successfully',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        college: user.college,
+        interests: user.interests,
+        role: user.role,
+        profilePicture: user.profilePicture,
+      },
+    });
+  } catch (error) {
+    return res.status(401).json({ message: 'Invalid refresh token' });
+  }
+};
+
 module.exports = {
   register,
   login,
   logout,
+  refreshToken,
 };

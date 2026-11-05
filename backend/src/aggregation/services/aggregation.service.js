@@ -1,3 +1,4 @@
+
 const Event = require('../../models/Event');
 const SyncLog = require('../../models/SyncLog');
 const { fetchDevfolioEvents } = require('../providers/devfolio.provider');

@@ -70,6 +70,10 @@ export default function EventCard({
   showFullActions = true,
   className = '',
   distanceKm,
+  matchScore,
+  matchReason,
+  categoryType,
+  trendingInfo,
 }) {
   if (!event) return null
 
@@ -109,8 +113,48 @@ export default function EventCard({
           )}
         </div>
 
-        {/* Mode & Deadline Top Right */}
+        {/* Mode & Deadline & Category Badges Top Right */}
         <div className="absolute right-3 top-3 flex flex-col items-end gap-1.5">
+          {/* Match Score Badge: ONLY for For You and Similar to Your Interests */}
+          {(!categoryType || categoryType === 'for-you' || categoryType === 'similar') &&
+            categoryType !== 'trending' &&
+            categoryType !== 'nearby' &&
+            categoryType !== 'saved' &&
+            matchScore !== undefined &&
+            matchScore !== null &&
+            typeof matchScore === 'number' && (
+              <span className="rounded-full border border-emerald-400/80 bg-emerald-600/90 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm backdrop-blur-md">
+                {Math.round(matchScore)}% Match
+              </span>
+            )}
+
+          {/* Trending Badge: shows genuine save count or Trending indicator, NEVER match percentage */}
+          {categoryType === 'trending' && (
+            (trendingInfo?.bookmarkCount > 0 || event?.bookmarkCount > 0) ? (
+              <span className="rounded-full border border-orange-400/80 bg-orange-600/90 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm backdrop-blur-md">
+                🔥 {trendingInfo?.bookmarkCount ?? event?.bookmarkCount} saves
+              </span>
+            ) : (trendingInfo?.isTrending || event?.isTrending) ? (
+              <span className="rounded-full border border-orange-400/80 bg-orange-600/90 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm backdrop-blur-md">
+                🔥 Trending
+              </span>
+            ) : null
+          )}
+
+          {/* Nearby Proximity Badge: shows geographic distance, NEVER match percentage */}
+          {categoryType === 'nearby' && distanceKm !== undefined && distanceKm !== null && Number.isFinite(Number(distanceKm)) && (
+            <span className="rounded-full border border-teal-400/80 bg-teal-700/90 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm backdrop-blur-md">
+              📍 {Number(distanceKm).toFixed(1)} km away
+            </span>
+          )}
+
+          {/* Saved Status Badge: shows saved indicator, NEVER match percentage */}
+          {categoryType === 'saved' && (
+            <span className="rounded-full border border-sky-400/80 bg-sky-600/90 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm backdrop-blur-md">
+              🔖 Saved
+            </span>
+          )}
+
           {event.mode && (
             <span
               className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold backdrop-blur-md shadow-sm ${getModeBadgeClass(
@@ -134,7 +178,7 @@ export default function EventCard({
       <div className="flex flex-1 flex-col p-5">
         {/* Title */}
         <h3 className="line-clamp-2 text-lg font-bold text-brand-text transition-colors group-hover:text-brand-teal">
-          <Link to={`/events/${event._id}`}>{event.title}</Link>
+          <Link to={`/events/${event._id || event.id}`}>{event.title}</Link>
         </h3>
 
         {/* Description */}
@@ -159,8 +203,27 @@ export default function EventCard({
           )}
         </div>
 
+        {/* Match Reason (Recommendation explanation) */}
+        {matchReason && (
+          <div className="mt-3.5 flex items-start gap-2 rounded-xl border border-teal-100 bg-teal-50/70 p-2.5 text-xs text-teal-800">
+            <span className="shrink-0 text-sm">
+              {categoryType === 'trending' ? '🔥' : categoryType === 'nearby' ? '📍' : categoryType === 'saved' ? '🔖' : '💡'}
+            </span>
+            <span className="font-medium leading-snug">{matchReason}</span>
+          </div>
+        )}
+
         {/* Meta Info */}
         <div className="mt-4 space-y-2 border-t border-slate-100 pt-3 text-xs text-slate-600">
+          {(event.locationName || event.venue) && event.mode !== 'Online' && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium text-slate-500">Location:</span>
+              <span className="font-medium text-slate-700 truncate max-w-[65%] text-right">
+                📍 {event.locationName || event.venue}
+              </span>
+            </div>
+          )}
+
           {distanceKm !== undefined && distanceKm !== null && Number.isFinite(Number(distanceKm)) && (
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium text-slate-500">Distance:</span>
@@ -224,7 +287,7 @@ export default function EventCard({
 
               {onBookmarkToggle && (
                 <BookmarkButton
-                  eventId={event._id}
+                  eventId={event._id || event.id}
                   isBookmarked={isBookmarked}
                   onToggle={onBookmarkToggle}
                   size="sm"
