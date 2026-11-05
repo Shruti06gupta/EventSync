@@ -6,7 +6,8 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.resolve(__dirname, '../../backend');
-const API_BASE = 'http://127.0.0.1:5000';
+export const API_BASE =
+  process.env.E2E_API_BASE || 'http://127.0.0.1:5000';
 export const E2E_EVENT_TITLE = '[E2E] Isolated Campus Hackathon';
 export const E2E_EMAIL_SUFFIX = '@eventsync-e2e.test';
 export const ISOLATED_DB_NAME = 'eventsync_e2e';
@@ -15,6 +16,7 @@ export const isolatedBackendEnv = () => {
   loadBackendEnvKeys(['MONGO_URI']);
   const env = {
     ...process.env,
+    NODE_ENV: 'test',
     DISABLE_SCHEDULER: 'true',
     EMAIL_DRY_RUN: 'true',
   };
@@ -57,7 +59,18 @@ export const runIsolatedSeed = (args) => {
     throw new Error(result.stderr || result.stdout || 'Isolated seed script failed');
   }
 
-  const output = (result.stdout || '').trim().split('\n').pop();
+  const output = (result.stdout || '')
+    .trim()
+    .split(/\r?\n/)
+    .reverse()
+    .find((line) => {
+      try {
+        JSON.parse(line);
+        return true;
+      } catch {
+        return false;
+      }
+    });
   return output ? JSON.parse(output) : {};
 };
 

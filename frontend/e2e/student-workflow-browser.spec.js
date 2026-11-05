@@ -35,7 +35,7 @@ test.describe.serial('Student Workflow Tests', () => {
     await expect(page).toHaveURL(/\/profile/, { timeout: 20000 });
     await expectLoggedIn(page);
     await expect(page.locator('#profile-name')).toHaveValue(student.name);
-    await expect(page.getByText(student.email)).toBeVisible();
+    await expect(page.getByText(student.email).first()).toBeVisible();
     runIsolatedSeed(['--action=notify', `--email=${student.email}`]);
   });
 
@@ -104,10 +104,18 @@ test.describe.serial('Student Workflow Tests', () => {
     await expect(page.getByText('[E2E] Registration deadline tomorrow')).toBeVisible();
 
     await page.getByRole('button', { name: /\[E2E\] New AI Hackathon added/ }).click();
+    await expect(page.getByRole('button', { name: 'Notifications' })).toHaveAttribute('aria-expanded', 'false');
+
     await page.getByRole('button', { name: 'Notifications' }).click();
+    await expect(page.getByRole('button', { name: 'Notifications' })).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByText('Clear All')).toBeVisible();
     await expect(page.getByText('Mark as read').first()).toBeVisible();
 
     await page.getByRole('button', { name: 'Clear All' }).click();
+    await expect(page.getByRole('button', { name: 'Notifications' })).toHaveAttribute('aria-expanded', 'false');
+
+    await page.getByRole('button', { name: 'Notifications' }).click();
+    await expect(page.getByRole('button', { name: 'Notifications' })).toHaveAttribute('aria-expanded', 'true');
     await expect(page.getByText("You're all caught up")).toBeVisible();
 
     await page.reload();
@@ -139,7 +147,8 @@ test.describe.serial('Student Workflow Tests', () => {
     await expect(page.getByRole('heading', { name: 'Adjust Profile Picture' })).toBeVisible();
     const zoom = page.locator('input[type="range"]');
     await zoom.fill('1.5');
-    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('img[alt="Preview"]')).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Adjust Profile Picture' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Save Changes' }).click();
     await expect(page.getByText(/profile updated successfully/i)).toBeVisible();
@@ -157,10 +166,6 @@ test.describe.serial('Student Workflow Tests', () => {
     await expect(page.locator('body')).toContainText(/recommend/i);
   });
 
-  test.afterAll(() => {
-    runIsolatedSeed(['--action=cleanup']);
-  });
-
   test('STUDENT-15: Log out', async ({ page }) => {
     await loginViaUi(page, student.email, student.password);
     await expectLoggedIn(page);
@@ -168,5 +173,9 @@ test.describe.serial('Student Workflow Tests', () => {
     await expect(page.getByRole('link', { name: /sign in/i }).first()).toBeVisible();
     await page.goto('/events');
     await expect(page).toHaveURL(/\/login/);
+  });
+
+  test.afterAll(() => {
+    runIsolatedSeed(['--action=cleanup']);
   });
 });

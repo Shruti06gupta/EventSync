@@ -18,6 +18,7 @@
     "verify:admin-dashboard": "node src/scripts/verifyAdminDashboard.js",
     "verify:recommendation-scoring": "node src/scripts/verifyRecommendationScoring.js",
     "verify:recommendation-api": "node src/scripts/verifyRecommendationAPI.js",
+    "verify:isolation": "node src/scripts/verifyIsolation.js --apply-isolated",
     "verify:step8-qa": "node src/scripts/verifyStep8QA.js"
   },
   "dependencies": {

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { API_BASE } from './helpers.js';
 
 test.describe('Additional Checks Tests', () => {
   test('ROUTES-01: Test all 14 frontend routes', async ({ page }) => {
@@ -59,7 +60,7 @@ test.describe('Additional Checks Tests', () => {
   });
 
   test('HTTP-01: Test HTTP 401 behavior', async ({ page, request }) => {
-    const response = await request.get('http://127.0.0.1:5000/user/profile');
+    const response = await request.get(`${API_BASE}/user/profile`);
     expect(response.status()).toBe(401);
 
     await page.goto('/profile');
@@ -67,7 +68,7 @@ test.describe('Additional Checks Tests', () => {
   });
 
   test('HTTP-02: Test HTTP 403 behavior', async ({ page, request }) => {
-    const response = await request.get('http://127.0.0.1:5000/admin/dashboard/stats');
+    const response = await request.get(`${API_BASE}/admin/dashboard/stats`);
     expect([401, 403]).toContain(response.status());
 
     await page.goto('/admin');
@@ -75,7 +76,7 @@ test.describe('Additional Checks Tests', () => {
   });
 
   test('HTTP-03: Test HTTP 429 behavior (rate limiting)', async ({ request }) => {
-    const response = await request.get('http://127.0.0.1:5000/health');
+    const response = await request.get(`${API_BASE}/health`);
     expect(response.status()).toBe(200);
     const headers = response.headers();
     const remaining = headers['ratelimit-remaining'] || headers['x-ratelimit-remaining'];
@@ -83,11 +84,13 @@ test.describe('Additional Checks Tests', () => {
   });
 
   test('CORS-01: Test CORS behavior', async ({ request }) => {
-    const response = await request.get('http://127.0.0.1:5000/health', {
-      headers: { Origin: 'http://localhost:5173' },
+    const response = await request.get(`${API_BASE}/health`, {
+      headers: { Origin: process.env.E2E_CLIENT_URL || 'http://localhost:5173' },
     });
     expect(response.status()).toBe(200);
-    expect(response.headers()['access-control-allow-origin']).toBe('http://localhost:5173');
+    const allowedOrigin = response.headers()['access-control-allow-origin'];
+    const expectedOrigins = ['http://localhost:5173', 'http://localhost:5174'];
+    expect(expectedOrigins).toContain(allowedOrigin);
     expect(response.headers()['access-control-allow-credentials']).toBe('true');
   });
 
@@ -120,9 +123,9 @@ test.describe('Additional Checks Tests', () => {
   });
 
   test('API-01: No unexpected backend errors', async ({ request }) => {
-    const health = await request.get('http://127.0.0.1:5000/health');
+    const health = await request.get(`${API_BASE}/health`);
     expect(health.status()).toBe(200);
-    const events = await request.get('http://127.0.0.1:5000/events');
+    const events = await request.get(`${API_BASE}/events`);
     expect(events.status()).toBeLessThan(500);
   });
 

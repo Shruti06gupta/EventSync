@@ -24,30 +24,31 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes('/auth/refresh-token')
+    ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
         })
-          .then((token) => {
-            return api(originalRequest)
-          })
-          .catch((err) => {
-            return Promise.reject(err)
-          })
+          .then(() => api(originalRequest))
+          .catch((err) => Promise.reject(err))
       }
 
       originalRequest._retry = true
       isRefreshing = true
 
       try {
-        await api.post('/auth/refresh-token')
+        await api.post('/auth/refresh-token', null, { _retry: true })
         processQueue(null)
         return api(originalRequest)
       } catch (refreshError) {
         processQueue(refreshError, null)
-        isRefreshing = false
         return Promise.reject(refreshError)
+      } finally {
+        isRefreshing = false
       }
     }
 

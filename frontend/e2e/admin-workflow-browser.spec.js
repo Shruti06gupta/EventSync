@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
+  API_BASE,
   expectLoggedIn,
   loadBackendEnvKeys,
   loginViaUi,
@@ -86,7 +87,7 @@ test.describe.serial('Admin Workflow Tests', () => {
     await loginViaUi(page, admin.email, admin.password);
     await page.goto('/admin/users');
     await expect(page.getByRole('heading', { name: /^users$/i })).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText(admin.email)).toBeVisible();
+    await expect(page.getByText(admin.email).first()).toBeVisible();
   });
 
   test('ADMIN-06: Open Reports & Analytics', async ({ page }) => {
@@ -97,6 +98,7 @@ test.describe.serial('Admin Workflow Tests', () => {
       timeout: 20000,
     });
     await expect(page.getByText('User Reports')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Reports' })).toHaveClass(/bg-brand-teal/);
   });
 
   test('ADMIN-PDF: Export report PDF', async ({ page }) => {
@@ -113,8 +115,34 @@ test.describe.serial('Admin Workflow Tests', () => {
     expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
   });
 
+  test('ADMIN-SYNC: Aggregation synchronization safety status', async () => {
+    // Check 9: Aggregation synchronization triggers external production calls (Devfolio/Unstop).
+    // Marking BLOCKED as required by Section 6 Check 9 and Section 8 Test Safety Requirements.
+    test.skip(true, 'BLOCKED: External aggregation sync (Devfolio/Unstop) cannot be run safely against third-party production endpoints');
+  });
+
+  test('ADMIN-PROFILE: Open Admin Profile', async ({ page }) => {
+    test.skip(!process.env.ADMIN_CODE, 'BLOCKED: ADMIN_CODE is not available in the test environment');
+    await loginViaUi(page, admin.email, admin.password);
+    await page.goto('/profile');
+    await expect(page.getByRole('heading', { name: /administrator profile/i })).toBeVisible({
+      timeout: 20000,
+    });
+    await expect(page.getByText(admin.email).first()).toBeVisible();
+  });
+
+  test('ADMIN-LOGOUT: Log out and verify protected-route behavior', async ({ page }) => {
+    test.skip(!process.env.ADMIN_CODE, 'BLOCKED: ADMIN_CODE is not available in the test environment');
+    await loginViaUi(page, admin.email, admin.password);
+    await expectLoggedIn(page);
+    await page.getByRole('button', { name: /^logout$/i }).first().click();
+    await expect(page).toHaveURL(/\/login/);
+    await page.goto('/admin');
+    await expect(page).toHaveURL(/\/login/);
+  });
+
   test('ADMIN-AUTHZ: Student cannot access admin routes', async ({ page, request }) => {
-    await request.post('http://127.0.0.1:5000/auth/register', {
+    await request.post(`${API_BASE}/auth/register`, {
       data: {
         name: student.name,
         email: student.email,

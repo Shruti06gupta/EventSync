@@ -40,6 +40,7 @@ const ensureEvent = async () => {
     registrationDeadline: new Date(now + 10 * 24 * 60 * 60 * 1000),
     mode: 'Online',
     venue: 'Zoom/Online',
+    location: { type: 'Point', coordinates: [0, 0] },
     image: '',
     eventLink: E2E_EVENT_LINK,
     isPublic: true,
@@ -112,6 +113,11 @@ const run = async () => {
   const ready = await connectDB();
   if (!ready) {
     throw new Error('Could not connect to MongoDB');
+  }
+
+  const dbName = mongoose.connection.db?.databaseName;
+  if (dbName !== 'eventsync_e2e') {
+    throw new Error(`Refusing to run seeder on non-isolated database "${dbName}". Expected "eventsync_e2e"`);
   }
 
   let result;

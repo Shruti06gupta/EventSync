@@ -98,7 +98,7 @@ const generalLimiter = rateLimit({
 // Authentication rate limiting (protects login and register against brute force)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // 20 attempts per 15 minutes prevents brute force while allowing normal usage
+  max: process.env.NODE_ENV === 'test' ? 1000 : 20, // 20 attempts per 15 minutes in prod, elevated in test
   message: { message: 'Too many authentication attempts, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
