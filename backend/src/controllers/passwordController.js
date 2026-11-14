@@ -21,7 +21,7 @@ const forgotPassword = async (req, res) => {
       user.resetOTPExpiry = new Date(expiry);
       await user.save();
 
-      const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+      const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').split(',')[0].trim().replace(/\/+$/, '');
       const resetLink = `${clientUrl}/reset-password?token=${token}`;
 
       const subject = 'Reset your EventSync password';
