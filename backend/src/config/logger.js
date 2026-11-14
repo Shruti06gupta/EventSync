@@ -28,8 +28,8 @@ const logger = winston.createLogger({
   transports: [
     // Console transport
     new winston.transports.Console({
-      // In production, only log errors and warnings to console
-      level: process.env.NODE_ENV === 'production' ? 'warn' : 'debug',
+      // Override with LOG_LEVEL (defaults: info in production, debug elsewhere)
+      level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug'),
     }),
   ],
   // Handle exceptions and rejections

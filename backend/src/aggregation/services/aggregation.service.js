@@ -27,6 +27,28 @@ const generateSummary = async (description) => {
 };
 
 /**
+ * Summarize descriptions AFTER events are saved, one at a time, so a slow or
+ * rate-limited AI call never delays (or loses) the event inserts.
+ * Limits: AI_SUMMARY_LIMIT per run (default 40); disable with DISABLE_AI_SUMMARY=true.
+ */
+const summarizeInBackground = async (events) => {
+  if (process.env.DISABLE_AI_SUMMARY === 'true' || !isGeminiAvailable()) return;
+  const limit = Number(process.env.AI_SUMMARY_LIMIT) || 40;
+
+  for (const event of events.slice(0, limit)) {
+    try {
+      const summary = await generateSummary(event.description);
+      if (summary && summary !== event.description) {
+        await Event.updateOne({ _id: event._id }, { $set: { description: summary } });
+      }
+    } catch (error) {
+      console.error('[Aggregation] Background summary failed:', error.message);
+    }
+  }
+  console.log('[Aggregation] Background summaries finished.');
+};
+
+/**
  * Triggers the aggregation process with detailed per-source reporting
  * @param {string} actorUserId - The admin triggering this (if manual)
  */
@@ -151,10 +173,6 @@ const runAggregation = async (actorUserId = null) => {
     console.log('[Aggregation] Inserting new events...');
     for (const eventData of newEvents) {
       try {
-        if (isGeminiAvailable()) {
-          eventData.description = await generateSummary(eventData.description);
-        }
-
         if (!eventData.source) {
           if (eventData.tags?.includes('devfolio')) {
             eventData.source = 'devfolio';
@@ -238,6 +256,11 @@ const runAggregation = async (actorUserId = null) => {
         actorUserId || 'system'
       );
     }
+
+    // Fire-and-forget: summaries are an enhancement, not part of the sync critical path
+    summarizeInBackground(insertedEvents).catch((error) => {
+      console.error('[Aggregation] Background summary error:', error.message);
+    });
 
     const devfolioAdded = insertedEvents.filter((e) => e.tags.includes('devfolio')).length;
     const unstopAdded = insertedEvents.filter((e) => e.tags.includes('unstop')).length;

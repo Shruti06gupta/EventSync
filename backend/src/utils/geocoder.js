@@ -7,9 +7,26 @@
 const cache = new Map();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
-// Rate limiting: ensure 1 second between requests
+// Optional keyed provider (recommended in production, e.g. Render's shared IPs get
+// rate-limited by public Nominatim). Free key: https://www.geoapify.com/
+const GEOAPIFY_API_KEY = process.env.GEOAPIFY_API_KEY || '';
+
+// Rate limiting between requests (Nominatim policy = 1/s; Geoapify free tier allows more)
 let lastRequestTime = 0;
-const MIN_DELAY = 1000; // 1 second (Nominatim policy)
+const MIN_DELAY = GEOAPIFY_API_KEY ? 250 : 1000;
+
+// Circuit breaker: after an HTTP 429 stop calling the provider for a while so a sync
+// does not hammer it (and does not spend minutes on doomed fallback queries).
+const COOLDOWN_MS = Number(process.env.GEOCODER_COOLDOWN_MS) || 10 * 60 * 1000;
+let blockedUntil = 0;
+
+// Serialize all geocoding so MIN_DELAY is really respected even when callers run in parallel
+let queueTail = Promise.resolve();
+const runExclusive = (fn) => {
+  const run = queueTail.then(fn, fn);
+  queueTail = run.catch(() => {});
+  return run;
+};
 
 /**
  * Sleep for specified milliseconds
@@ -310,101 +327,133 @@ const validateCoordinateConsistency = (venue, lat, lon) => {
 };
 
 /**
- * Geocode a location name using OpenStreetMap Nominatim
- * Uses progressive fallback to simplify addresses if exact match fails
- * @param {string} locationName - Location name to geocode
- * @returns {Promise<object|null>} Object with { latitude, longitude, displayName } or null on failure
+ * Look up a single query with the configured provider.
+ * @param {string} query
+ * @returns {Promise<{status: string, latitude?: number, longitude?: number, displayName?: string}>}
  */
-const geocodeLocation = async (locationName) => {
-  if (!locationName || !locationName.trim()) {
-    return null;
+const fetchCoordinates = async (query) => {
+  const encodedQuery = encodeURIComponent(query);
+
+  if (GEOAPIFY_API_KEY) {
+    const url = `https://api.geoapify.com/v1/geocode/search?format=json&limit=1&text=${encodedQuery}&apiKey=${GEOAPIFY_API_KEY}`;
+    const response = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (response.status === 429) return { status: 'rate_limited' };
+    if (!response.ok) {
+      console.warn(`[Geocoder] Geoapify API error: ${response.status} for query: ${query}`);
+      return { status: 'error' };
+    }
+    const data = await response.json();
+    const match = Array.isArray(data?.results) ? data.results[0] : null;
+    if (!match) return { status: 'empty' };
+    return {
+      status: 'ok',
+      latitude: Number(match.lat),
+      longitude: Number(match.lon),
+      displayName: match.formatted || query,
+    };
   }
 
-  const trimmedName = locationName.trim();
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodedQuery}`;
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'EventSync/1.0 (event-discovery-platform)',
+      Accept: 'application/json',
+    },
+  });
+  if (response.status === 429) return { status: 'rate_limited' };
+  if (!response.ok) {
+    console.warn(`[Geocoder] Nominatim API error: ${response.status} for query: ${query}`);
+    return { status: 'error' };
+  }
+  const results = await response.json();
+  if (!Array.isArray(results) || results.length === 0) return { status: 'empty' };
+  const match = results[0];
+  return {
+    status: 'ok',
+    latitude: Number(match.lat),
+    longitude: Number(match.lon),
+    displayName: match.display_name || query,
+  };
+};
 
-  // Check cache first
+const geocodeUncached = async (trimmedName) => {
+  // Another queued call may have filled the cache or tripped the breaker while we waited
   const cached = getCached(trimmedName);
-  if (cached) {
-    return cached;
-  }
+  if (cached) return cached;
+  if (Date.now() < blockedUntil) return null;
 
-  // Generate fallback queries
   const queries = generateFallbackQueries(trimmedName);
 
-  // Try each query in sequence
   for (let i = 0; i < queries.length; i++) {
     const query = queries[i];
 
-    // Rate limiting: wait if needed
-    const now = Date.now();
-    const timeSinceLastRequest = now - lastRequestTime;
+    const timeSinceLastRequest = Date.now() - lastRequestTime;
     if (timeSinceLastRequest < MIN_DELAY) {
       await sleep(MIN_DELAY - timeSinceLastRequest);
     }
 
     try {
-      const encodedQuery = encodeURIComponent(query);
-      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodedQuery}`;
-
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'EventSync/1.0 (event-discovery-platform)',
-          Accept: 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        console.warn(`[Geocoder] Nominatim API error: ${response.status} for query: ${query}`);
-        continue; // Try next fallback
-      }
-
-      const results = await response.json();
-      if (!Array.isArray(results) || results.length === 0) {
-        console.warn(`[Geocoder] No results for query: ${query}`);
-        continue; // Try next fallback
-      }
-
-      const match = results[0];
-      const latitude = Number(match.lat);
-      const longitude = Number(match.lon);
-
-      // Validate coordinates
-      if (!isValidCoordinate(latitude, longitude)) {
-        console.warn(`[Geocoder] Invalid coordinates for query ${query}: lat=${latitude}, lon=${longitude}`);
-        continue; // Try next fallback
-      }
-
-      // Validate coordinate consistency with venue region (use original venue for validation)
-      if (!validateCoordinateConsistency(trimmedName, latitude, longitude)) {
-        console.warn(`[Geocoder] Coordinate consistency check failed for query ${query}: lat=${latitude}, lon=${longitude}`);
-        continue; // Try next fallback
-      }
-
-      // Success!
-      const result = {
-        latitude,
-        longitude,
-        displayName: match.display_name || query,
-      };
-
-      // Update last request time
+      const outcome = await fetchCoordinates(query);
       lastRequestTime = Date.now();
 
-      // Cache the result using the original venue as key
+      if (outcome.status === 'rate_limited') {
+        blockedUntil = Date.now() + COOLDOWN_MS;
+        console.warn(
+          `[Geocoder] Rate limited (429). Pausing geocoding for ${Math.round(COOLDOWN_MS / 60000)} min. ` +
+          'Events are still saved without coordinates; run the backfill script later.'
+        );
+        return null;
+      }
+      if (outcome.status !== 'ok') {
+        continue; // empty/error: try the next fallback
+      }
+
+      const { latitude, longitude } = outcome;
+
+      if (!isValidCoordinate(latitude, longitude)) {
+        console.warn(`[Geocoder] Invalid coordinates for query ${query}: lat=${latitude}, lon=${longitude}`);
+        continue;
+      }
+
+      if (!validateCoordinateConsistency(trimmedName, latitude, longitude)) {
+        console.warn(`[Geocoder] Coordinate consistency check failed for query ${query}: lat=${latitude}, lon=${longitude}`);
+        continue;
+      }
+
+      const result = { latitude, longitude, displayName: outcome.displayName };
       setCached(trimmedName, result);
 
       const fallbackNote = i === 0 ? 'exact match' : `fallback ${i}`;
-      console.log(`[Geocoder] Successfully geocoded (${fallbackNote}): ${trimmedName} → ${latitude}, ${longitude} (using query: "${query}")`);
+      console.log(`[Geocoder] Successfully geocoded (${fallbackNote}): ${trimmedName} -> ${latitude}, ${longitude}`);
       return result;
     } catch (error) {
       console.error(`[Geocoder] Error geocoding query ${query}:`, error.message);
-      continue; // Try next fallback
     }
   }
 
-  // All queries failed
   console.warn(`[Geocoder] All fallback queries failed for: ${trimmedName}`);
   return null;
+};
+
+/**
+ * Geocode a location name (Geoapify if GEOAPIFY_API_KEY is set, otherwise Nominatim).
+ * Never throws; resolves to null when the location cannot be geocoded.
+ * Set DISABLE_GEOCODING=true to skip geocoding entirely.
+ * @param {string} locationName - Location name to geocode
+ * @returns {Promise<object|null>} { latitude, longitude, displayName } or null
+ */
+const geocodeLocation = async (locationName) => {
+  if (process.env.DISABLE_GEOCODING === 'true') return null;
+  if (!locationName || !locationName.trim()) return null;
+
+  const trimmedName = locationName.trim();
+
+  const cached = getCached(trimmedName);
+  if (cached) return cached;
+
+  if (Date.now() < blockedUntil) return null; // breaker open: fail fast
+
+  return runExclusive(() => geocodeUncached(trimmedName));
 };
 
 /**
