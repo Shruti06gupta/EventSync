@@ -1,3 +1,55 @@
+<!--
+HOW TO USE THIS FILE
+1. PART 1  -> paste at the very TOP of README.md (above "# 🎓 EventSync ...").
+2. PART 2  -> replace the old ".env" example block under "# 2. Backend Setup".
+3. PART 3  -> paste as a new section just BEFORE "# 
+<!-- ======================= PART 3: NEW SECTION ======================= -->
+🚀 Deployment & CI/CD
+
+EventSync is deployed on Render and served from a custom domain.
+
+Part	Where	Address
+Frontend (React/Vite static site)	Render Static Site	https://eventsync.me
+Backend (Express API)	Render Web Service	https://api.eventsync.me
+Database	MongoDB Atlas	private
+Transactional email	SMTP via Resend, sent from noreply@eventsync.me	—
+CI pipeline (GitHub Actions)
+
+Every push and pull request to main runs .github/workflows/ci.yml:
+
+Backend tests: installs dependencies and runs npm test (production-hardening and graceful-shutdown checks).
+Frontend build: installs dependencies and runs npm run build.
+
+Render is set to auto-deploy only after these checks pass, so a failing commit never reaches the live site.
+
+Deployment notes
+The frontend needs VITE_API_URL set at build time to the API address.
+The single-page app needs a Render Rewrite rule /* → /index.html, so links such as /reset-password open directly.
+Run the backend as a single instance, because the scheduled jobs (event sync and deadline reminders) run inside the server process.
+The frontend and API share the parent domain eventsync.me, so login cookies work with SameSite=Lax.
+Production hardening
+JWT access and refresh tokens in HTTP-only cookies, with automatic refresh
+helmet security headers and CORS limited to the configured client origin
+Rate limiting on login, registration, password reset, chatbot and sync endpoints
+Structured logging with winston and automatic redaction of passwords and tokens
+Graceful shutdown that closes the HTTP server and the database connection cleanly
+
+🔄 Typical User Flow".
+Delete this comment after pasting.
+-->
+ 
+<!-- ======================= PART 1: TOP OF README ======================= -->
+ 
+![CI](https://github.com/Shruti06gupta/EventSync/actions/workflows/ci.yml/badge.svg)
+ 
+**🌐 Live demo: [https://eventsync.me](https://eventsync.me)**
+ 
+> Note: the backend runs on a free hosting plan that sleeps when idle, so the very first load can take about 30 seconds.
+ 
+**Tech:** React · Vite · Tailwind CSS · Node.js · Express · MongoDB (Mongoose) · JWT · Google Gemini · GitHub Actions · Render
+ 
+---
+
 # 🎓 EventSync — Intelligent Student Event Discovery Platform
 
 > **Discover. Personalize. Participate. Grow.**
