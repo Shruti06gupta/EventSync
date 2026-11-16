@@ -1,682 +1,222 @@
-<!--
-HOW TO USE THIS FILE
-1. PART 1  -> paste at the very TOP of README.md (above "# 🎓 EventSync ...").
-2. PART 2  -> replace the old ".env" example block under "# 2. Backend Setup".
-3. PART 3  -> paste as a new section just BEFORE "# 
-<!-- ======================= PART 3: NEW SECTION ======================= -->
-🚀 Deployment & CI/CD
-
-EventSync is deployed on Render and served from a custom domain.
-
-Part	Where	Address
-Frontend (React/Vite static site)	Render Static Site	https://eventsync.me
-Backend (Express API)	Render Web Service	https://api.eventsync.me
-Database	MongoDB Atlas	private
-Transactional email	SMTP via Resend, sent from noreply@eventsync.me	—
-CI pipeline (GitHub Actions)
-
-Every push and pull request to main runs .github/workflows/ci.yml:
-
-Backend tests: installs dependencies and runs npm test (production-hardening and graceful-shutdown checks).
-Frontend build: installs dependencies and runs npm run build.
-
-Render is set to auto-deploy only after these checks pass, so a failing commit never reaches the live site.
-
-Deployment notes
-The frontend needs VITE_API_URL set at build time to the API address.
-The single-page app needs a Render Rewrite rule /* → /index.html, so links such as /reset-password open directly.
-Run the backend as a single instance, because the scheduled jobs (event sync and deadline reminders) run inside the server process.
-The frontend and API share the parent domain eventsync.me, so login cookies work with SameSite=Lax.
-Production hardening
-JWT access and refresh tokens in HTTP-only cookies, with automatic refresh
-helmet security headers and CORS limited to the configured client origin
-Rate limiting on login, registration, password reset, chatbot and sync endpoints
-Structured logging with winston and automatic redaction of passwords and tokens
-Graceful shutdown that closes the HTTP server and the database connection cleanly
-
-🔄 Typical User Flow".
-Delete this comment after pasting.
--->
- 
-<!-- ======================= PART 1: TOP OF README ======================= -->
+# 🎓 EventSync
  
 ![CI](https://github.com/Shruti06gupta/EventSync/actions/workflows/ci.yml/badge.svg)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?logo=nodedotjs&logoColor=white)
+![Express](https://img.shields.io/badge/Express-000000?logo=express&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB_Atlas-47A248?logo=mongodb&logoColor=white)
+![Gemini](https://img.shields.io/badge/Google_Gemini-4285F4?logo=googlegemini&logoColor=white)
+![Render](https://img.shields.io/badge/Render-46E3B7?logo=render&logoColor=black)
+ 
+**Intelligent, location-aware student event discovery and personalized recommendations, all in one place.**
  
 **🌐 Live demo: [https://eventsync.me](https://eventsync.me)**
  
-> Note: the backend runs on a free hosting plan that sleeps when idle, so the very first load can take about 30 seconds.
+> The backend runs on a free hosting plan that sleeps when idle, so the first load can take about 30 seconds.
  
-**Tech:** React · Vite · Tailwind CSS · Node.js · Express · MongoDB (Mongoose) · JWT · Google Gemini · GitHub Actions · Render
+## Table of Contents
+ 
+- [Overview](#overview)
+- [The Problem EventSync Solves](#the-problem-eventsync-solves)
+- [System Architecture](#system-architecture)
+- [End-to-End System Lifecycle](#end-to-end-system-lifecycle)
+- [Features](#features)
+- [Geospatial Data Strategy](#geospatial-data-strategy)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Option A: Local Development Setup](#option-a-local-development-setup)
+  - [Environment Configuration](#environment-configuration)
+- [Example: Location Search](#example-location-search)
+- [Deployment & CI/CD](#deployment--cicd)
+- [Testing](#testing)
+- [Operational Resilience](#operational-resilience)
+- [Boundaries & Limitations](#boundaries--limitations)
+- [Roadmap](#roadmap)
+- [Team](#team)
+---
+ 
+## Overview
+ 
+**EventSync** is a full-stack MERN platform that gathers hackathons, workshops, conferences, competitions and internships from platforms such as **Unstop** and **Devfolio** into one searchable catalog. It filters events by interest and location and recommends the ones that matter to each student.
+ 
+EventSync is split into three layers:
+ 
+- **React frontend:** dashboard, discovery, bookmarks, notifications and the admin console, served as a static site.
+- **Express API:** authentication, event search, recommendations, notifications, scheduled jobs, event sync, geocoding and reports.
+- **Data and integrations:** MongoDB Atlas with a geospatial index, Google Gemini for AI relevance, Resend for email, and Unstop and Devfolio as event sources.
+## The Problem EventSync Solves
+ 
+Students find events through disconnected platforms, social posts and college groups. That causes four recurring problems:
+ 
+| Problem | How EventSync solves it |
+|---|---|
+| Relevant events are hard to find | Unified catalog with search, filters and a personalized **Recommended for You** feed |
+| Nearby events are invisible | Radius search such as "within 100 km of Chandigarh", sorted nearest first |
+| Deadlines get missed | In-app notifications and scheduled deadline reminders |
+| External data is messy | Normalization, validation and a geocoding pipeline with fallback queries and coordinate checks |
  
 ---
-
-# 🎓 EventSync — Intelligent Student Event Discovery Platform
-
-> **Discover. Personalize. Participate. Grow.**
-
-**EventSync** is a full-stack **MERN-based student event discovery and recommendation platform** designed to help students discover hackathons, workshops, conferences, competitions, internships, tech events, and other opportunities from multiple platforms — all in one place.
-
-Instead of manually searching across platforms such as **Unstop** and **Devfolio**, EventSync brings relevant opportunities together, filters them based on user preferences and location, and provides personalized event recommendations.
-
+ 
+## System Architecture
+ 
+![EventSync system architecture](docs/images/architecture.svg)
+ 
+| Component | Responsibility |
+|---|---|
+| React frontend | UI, routing, API calls with cookie-based sessions |
+| Auth and RBAC | Registration, login, token refresh, student and admin roles |
+| Events API | Search, filters, pagination, geospatial queries |
+| Recommender | Personalized ranking using user activity and Gemini |
+| Notifications | In-app alerts for bookmarks, deadlines and reminders |
+| Cron jobs | Scheduled event sync and deadline reminders (`node-cron`) |
+| Event sync | Fetches, normalizes and validates events from Unstop and Devfolio |
+| Geocoding | Converts venue text to validated coordinates |
+| Reports | PDF report generation with PDFKit |
+ 
 ---
-
-## ✨ Why EventSync?
-
-Students often discover events through multiple disconnected platforms, social media posts, college groups, and websites. This makes it difficult to:
-
-- 🔎 Find relevant events
-- 📍 Discover events happening nearby
-- ⏰ Track registration deadlines
-- 🔖 Save interesting opportunities
-- 🤖 Find events that match personal interests
-- 🔔 Remember upcoming deadlines
-- 📊 Track participation and engagement
-
-**EventSync solves this by providing a centralized, intelligent event discovery experience.**
-
+ 
+## End-to-End System Lifecycle
+ 
+### Phase 0: Server boot
+ 
+- Loads environment configuration, initializes `winston` logging and connects to MongoDB.
+- Registers `helmet`, CORS limited to the configured client origin and rate limiters.
+- Starts the cron jobs inside the server process, which is why the backend runs as a single instance.
+- Installs shutdown handlers that close the HTTP server and the database connection cleanly.
+### Phase 1: Authentication and session
+ 
+![Authentication and token refresh flow](docs/images/auth-flow.svg)
+ 
+- Passwords are hashed with bcrypt, and login, registration and password reset are rate limited.
+- JWT access and refresh tokens are stored in HTTP-only cookies and refreshed automatically.
+- Role-based middleware restricts admin routes to administrators.
+### Phase 2: Event synchronization
+ 
+- A scheduled job fetches events from **Unstop** and **Devfolio**.
+- Records are normalized into the common `Event` model and validated before they are stored.
+- Each run is recorded in `SyncLog`, and admins can trigger and monitor sync from the dashboard.
+### Phase 3: Geocoding and coordinate validation
+ 
+![Event sync and geocoding data flow](docs/images/data-flow.svg)
+ 
+- Generic venues (`offline`, `online`, `hybrid`, `TBD`, `TBA`) are never geocoded.
+- Progressive fallback: full venue address, then simplified venue, then city or locality.
+- Coordinates are validated against the region named in the venue and stored as GeoJSON.
+- Events that fail geocoding stay retryable instead of being dropped.
+### Phase 4: Discovery and location search
+ 
+![Location search flow](docs/images/location-search.svg)
+ 
+- Text search and filters on category, location, mode, deadline, source and verification status.
+- Radius search resolves a place name or browser location to coordinates, then runs a MongoDB `$near` query.
+### Phase 5: Personalized recommendations
+ 
+![Recommendation flow](docs/images/recommendation-flow.svg)
+ 
+- The engine builds a profile from interests, preferred categories, bookmarks and past interactions.
+- Candidates are scored on event metadata, location, mode and upcoming deadlines, then ranked with Gemini.
+### Phase 6: Bookmarks, notifications and reminders
+ 
+- Students bookmark events, and bookmarks feed back into recommendations.
+- Notifications are created for bookmark activity, deadlines and reminders.
+- `ReminderLog` records reminder activity, and reminder emails are sent from `noreply@eventsync.me`.
+### Phase 7: Administration
+ 
+- KPI overview, event create, edit, delete and verify, location assignment.
+- Reports and analytics covering events, categories, sources, bookmarks and sync activity.
+### Typical user flow
+ 
+```mermaid
+flowchart TD
+  A[Register / Login] --> B[Dashboard]
+  B --> C[Discover events]
+  C --> D[Search] & E[Filter] & F[Recommendations]
+  D & E & F --> G[Event details]
+  G --> H[Bookmark] & I[Reminder] & J[Register on source site]
+  H & I --> K[Notifications]
+```
+ 
 ---
-
-# 🚀 Key Features
-
-## 🔐 Authentication & Authorization
-
-EventSync provides secure authentication and role-based access.
-
-### User Authentication
-
-- User registration and login
-- JWT-based authentication
-- HTTP-only cookie-based token storage
-- Password hashing using bcrypt
-- Protected routes
-- Authentication persistence
-- Logout functionality
-- Role-based access control
-
+ 
+## Features
+ 
 ### Roles
-
-**👤 Student/User**
-- Discover events
-- Search and filter events
-- Bookmark events
-- Receive notifications
-- Set reminders
-- Get personalized recommendations
-- Track activity
-
-**🛡️ Admin**
-- Access admin dashboard
-- Create and manage events
-- Monitor event data
-- View analytics and reports
-- Manage event synchronization
-- Monitor platform activity
-
----
-
-# 📅 Event Discovery
-
-EventSync provides a centralized event discovery system.
-
-Users can browse events collected from different sources and manually created events.
-
-### Event information includes:
-
-- Event title
-- Description
-- Category
-- Organizer
-- Venue
-- Location
-- Event mode
-- Registration deadline
-- Event date
-- Registration link
-- Source/platform
-- Verification status
-- Distance from user's selected location
-
----
-
-# 🔎 Smart Event Search & Filtering
-
-Users can quickly narrow down events using multiple filters.
-
-### Search
-
-Search events based on:
-
-- Event title
-- Keywords
-- Categories
-- Locations
-- Other event attributes
-
-### Filters
-
-Users can filter events based on:
-
-- 📂 Category
-- 📍 Location
-- 🌐 Event mode
-- 📅 Registration deadline
-- 🔗 Event source
-- Other available event attributes
-
----
-
-# 📍 Location-Based Event Discovery
-
-One of EventSync's major features is **geospatial event discovery**.
-
-Users can search for events within a selected radius of a location.
-
-### Example
-
-> Search for events within **100 km of Chandigarh**
-
-EventSync:
-
-1. Resolves the selected location
-2. Converts it into geographic coordinates
-3. Performs a MongoDB geospatial search
-4. Applies the requested radius
-5. Sorts results by distance
-6. Displays the nearest events first
-
-### Supported location workflows
-
-- Search using a location name
-- Use the browser's current location
-- Select a radius
-- Clear location filtering
-- Preserve location filtering during pagination
-
-### Geospatial implementation
-
-EventSync uses:
-
-- GeoJSON `Point`
-- MongoDB `2dsphere` index
-- MongoDB `$near`
-- `$maxDistance`
-
-Coordinates are stored using the GeoJSON convention:
-
-```text
-[longitude, latitude]
-```
-
-### Example
-
-For Chandigarh:
-
-```text
-Chandigarh
-    ↓
-Geocoding
-    ↓
-30.7334421, 76.7797143
-    ↓
-MongoDB $near
-    ↓
-100 km radius
-    ↓
-Nearest events first
-```
-
----
-
-# 🗺️ Intelligent Geocoding & Coordinate Validation
-
-Event data obtained from external sources does not always contain usable geographic coordinates.
-
-EventSync therefore includes a geocoding pipeline that:
-
-- Converts venue/location text into coordinates
-- Uses progressive fallback queries when an exact address cannot be resolved
-- Avoids geocoding generic values such as:
-  - `offline`
-  - `online`
-  - `hybrid`
-  - `TBD`
-  - `TBA`
-- Preserves real addresses containing words such as `India`
-- Validates coordinates against the region mentioned in the venue
-- Stores valid GeoJSON coordinates
-- Keeps failed events retryable
-
-### Progressive fallback
-
-For example:
-
-```text
-Full venue address
-        ↓
-Simplified venue
-        ↓
-City / locality
-        ↓
-Valid city-level coordinates
-```
-
-This prevents highly specific addresses from causing an otherwise valid event to become unsearchable.
-
----
-
-# 🤖 Personalized Event Recommendations
-
-EventSync also provides a **personalized recommendation system** to help users discover events that are relevant to them instead of browsing the entire event catalog.
-
-Recommendations can consider factors such as:
-
-- User interests
-- Preferred categories
-- Previous event interactions
-- Bookmarked events
-- Event categories
-- Location
-- Event mode
-- Upcoming deadlines
-- Event relevance
-
-### Recommendation experience
-
-Instead of simply displaying:
-
-> "Latest Events"
-
-EventSync can surface:
-
-> **✨ Recommended for You**
-
-with events that are more relevant to the individual user.
-
----
-
-## 🧠 AI-Assisted Recommendations
-
-EventSync includes AI capabilities through the **Google Gemini API** integration.
-
-The recommendation layer can use AI to understand event information and improve relevance beyond simple keyword matching.
-
-The architecture allows the system to combine:
-
-```text
-User Preferences
-       +
-Event Metadata
-       +
-User Activity
-       +
-Location
-       +
-AI Understanding
-       ↓
-Personalized Recommendations
-```
-
-This makes recommendations more context-aware and useful for students.
-
----
-
-# 🔖 Bookmark Events
-
-Users can save events that they are interested in.
-
-### Bookmark functionality
-
-- Bookmark an event
-- Remove a bookmark
-- View saved events
-- Receive notifications related to bookmarked events
-- Use bookmarked activity as an input for personalization
-
-This makes it easier to maintain a personal list of opportunities.
-
----
-
-# 🔔 Notifications
-
-EventSync provides an in-app notification system to keep users informed.
-
-Notifications can be generated for events such as:
-
-- 🔖 Bookmark activity
-- ⏰ Upcoming deadlines
-- 📅 Event reminders
-- 🎯 Relevant event updates
-- Other important platform events
-
-Notifications can be viewed from the application notification interface.
-
----
-
-# ⏰ Event Reminders
-
-Users can keep track of important event deadlines and upcoming opportunities.
-
-The backend includes scheduled processing that supports automated event-related tasks.
-
-This helps reduce the chance of students missing:
-
-- Registration deadlines
-- Upcoming events
-- Important event updates
-
----
-
-# 🔄 Event Synchronization
-
-EventSync is designed to aggregate events from multiple external platforms.
-
-Currently discussed integrations include:
-
-- **Unstop**
-- **Devfolio**
-
-The synchronization system helps bring events from different sources into a common EventSync data model.
-
-### Synchronization flow
-
-```text
-External Platforms
-      │
-      ├── Unstop
-      │
-      └── Devfolio
-             │
-             ▼
-      Event Synchronization
-             │
-             ▼
-       Data Processing
-             │
-             ▼
-       Event Validation
-             │
-             ▼
-        MongoDB
-             │
-             ▼
-        EventSync UI
-```
-
-This creates a single discovery layer over multiple event sources.
-
----
-
-# 🛡️ Event Verification
-
-Events can be marked as verified before being displayed as trusted opportunities.
-
-The system supports filtering based on verification status so that the discovery experience can prioritize valid event records.
-
----
-
-# 👨‍💼 Admin Dashboard
-
-EventSync includes a dedicated administration experience.
-
-### Admin features include:
-
-- 📊 KPI overview
-- 📅 Event management
-- ➕ Create events
-- ✏️ Edit events
-- 🗑️ Manage events
-- 📈 Reports and analytics
-- 🔄 Monitor event synchronization
-- 🔔 Admin notifications
-- 👥 Administrative controls
-
----
-
-# 📊 Admin Analytics & Reports
-
-The admin dashboard provides visibility into platform activity.
-
-Potential metrics include:
-
-- Total events
-- Verified events
-- Event categories
-- User activity
-- Bookmarks
-- Recommendations
-- Event sources
-- Synchronization activity
-- Other platform KPIs
-
-The reporting interface helps administrators understand how EventSync is being used.
-
----
-
-# 🏆 Gamification
-
-EventSync includes a gamification layer designed to encourage students to actively explore opportunities.
-
-The UI supports concepts such as:
-
-- 🏆 Progress
-- 🎯 Participation
-- ⭐ Achievements
-- 🔥 Activity
-- Event discovery milestones
-
-Gamification encourages users to interact more consistently with the platform.
-
----
-
-# 🌐 Event Modes
-
-EventSync supports different event formats, including:
-
-### 🏢 Offline
-
-Physical events that have a geographic location.
-
-### 💻 Online
-
-Virtual events that do not require geographic coordinates.
-
-### 🔀 Hybrid
-
-Events that combine physical and virtual participation.
-
-Geospatial filtering is applied only when meaningful geographic coordinates are available.
-
----
-
-# 📄 Event Management
-
-Administrators can manage event records through the platform.
-
-Supported operations include:
-
-- Create
-- Read
-- Update
-- Delete
-- Verify
-- Categorize
-- Assign location
-- Manage deadlines
-- Manage registration information
-
-Manually created events can also be assigned geographic coordinates for radius-based discovery.
-
----
-
-# ⏱️ Automated Background Jobs
-
-The backend uses scheduled jobs to automate recurring operations.
-
-Powered by:
-
-```text
-node-cron
-```
-
-These jobs can support tasks such as:
-
-- Deadline-related processing
-- Event maintenance
-- Notification generation
-- Synchronization workflows
-- Cleanup operations
-
----
-
-# 📱 Responsive User Experience
-
-The frontend is designed as a modern responsive web application.
-
-Major UI areas include:
-
-- Dashboard
-- Event discovery
-- Event cards
-- Event details
-- Bookmarks
-- Notifications
-- Recommendations
-- Admin dashboard
-- Analytics
-- Reports
-
----
-
-# 🏗️ System Architecture
-
-```text
-                       ┌─────────────────────┐
-                       │      Students       │
-                       └──────────┬──────────┘
-                                  │
-                                  ▼
-                       ┌─────────────────────┐
-                       │   React Frontend    │
-                       │       + Vite        │
-                       └──────────┬──────────┘
-                                  │
-                              REST API
-                                  │
-                                  ▼
-                       ┌─────────────────────┐
-                       │   Express Backend   │
-                       │      + Node.js      │
-                       └──────────┬──────────┘
-                                  │
-             ┌────────────────────┼────────────────────┐
-             │                    │                    │
-             ▼                    ▼                    ▼
-      ┌─────────────┐      ┌──────────────┐     ┌─────────────┐
-      │  MongoDB    │      │ Gemini / AI   │     │ Cron Jobs   │
-      │   Atlas     │      │   Services    │     │             │
-      └─────────────┘      └──────────────┘     └─────────────┘
-             │
-             ▼
-      ┌──────────────────────┐
-      │ Event / User Data    │
-      │ Notifications        │
-      │ Bookmarks            │
-      │ Reminders            │
-      │ Sync Logs            │
-      └──────────────────────┘
-
-External Sources
-      │
-      ├── Unstop
-      └── Devfolio
-             │
-             ▼
-      Event Synchronization
-             │
-             ▼
-          MongoDB
-```
-
----
-
-# 🛠️ Tech Stack
-
-## Frontend
-
-| Technology | Purpose |
+ 
+| Role | Capabilities |
 |---|---|
-| ⚛️ React 18 | User interface |
-| ⚡ Vite | Development/build tooling |
-| 🧭 React Router DOM | Client-side routing |
-| 🎨 Tailwind CSS | Styling |
-| 📡 Axios | API communication |
-
-## Backend
-
-| Technology | Purpose |
+| 👤 Student | Discover, search, filter and bookmark events; notifications and reminders; personalized recommendations |
+| 🛡️ Admin | Dashboard KPIs, event management, verification, reports and analytics, sync monitoring |
+ 
+### Event data
+ 
+Each event stores its title, description, category, organizer, venue, location, mode, registration deadline, event date, registration link, source, verification status and distance from the selected location.
+ 
+### Event modes
+ 
+| Mode | Location handling |
 |---|---|
-| 🟢 Node.js | Runtime |
-| 🚂 Express.js | REST API |
-| 🍃 Mongoose | MongoDB ODM |
-| 🔐 JWT | Authentication |
-| 🔒 bcrypt | Password hashing |
-| ⏰ node-cron | Scheduled jobs |
-| 📧 Nodemailer | Email functionality |
-| 📄 PDFKit | PDF/report generation |
-| 🤖 Google Gemini API | AI capabilities |
-
-## Database
-
-```text
-MongoDB Atlas
-      +
-Mongoose
-      +
-2dsphere Geospatial Index
+| 🏢 Offline | Has a geographic location and appears in radius search |
+| 💻 Online | No coordinates required |
+| 🔀 Hybrid | Physical and virtual, geocoded when a real venue exists |
+ 
+### Other features
+ 
+- **Verification:** events can be marked verified and filtered by verification status.
+- **Gamification:** progress, participation, achievements and activity milestones.
+- **Pagination:** active search, filter and location settings are preserved across pages.
+---
+ 
+## Geospatial Data Strategy
+ 
+Physical event locations are stored as GeoJSON points in `[longitude, latitude]` order:
+ 
+```javascript
+{
+  type: "Point",
+  coordinates: [longitude, latitude]
+}
 ```
-
-### Core models
-
-- `User`
-- `Event`
-- `Notification`
-- `ReminderLog`
-- `SyncLog`
-
+ 
+A `2dsphere` index on `location` supports radius search with `$near` and `$maxDistance`, which gives radius filtering and nearest-first ordering. Online events without coordinates are excluded from radius searches.
+ 
 ---
-
-# 🔐 Security
-
-EventSync follows several security practices:
-
-- JWT authentication
-- HTTP-only cookies
-- Password hashing with bcrypt
-- Protected backend routes
-- Role-based authorization
-- Environment-based secret configuration
-- Server-side validation
-- Authentication-protected event APIs
-
-Sensitive credentials should never be committed to the repository.
-
+ 
+## Tech Stack
+ 
+| Layer | Technologies |
+|---|---|
+| Frontend | React 18, Vite, React Router DOM, Tailwind CSS, Axios |
+| Backend | Node.js, Express.js, Mongoose, JWT, bcrypt, node-cron, Nodemailer, PDFKit, helmet, winston |
+| AI | Google Gemini API |
+| Database | MongoDB Atlas with a `2dsphere` geospatial index |
+| Email | SMTP via Resend |
+| CI/CD and hosting | GitHub Actions, Render |
+ 
+**Core models:** `User`, `Event`, `Notification`, `ReminderLog`, `SyncLog`
+ 
 ---
-
-# 📂 Project Structure
-
+ 
+## Project Structure
+ 
 ```text
 EventSync/
-│
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── docs/
+│   └── images/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
 │   │   ├── pages/
 │   │   ├── context/
-│   │   ├── services/
-│   │   └── ...
+│   │   └── services/
 │   ├── package.json
 │   └── vite.config.js
-│
 ├── backend/
 │   ├── src/
 │   │   ├── controllers/
@@ -684,479 +224,189 @@ EventSync/
 │   │   ├── routes/
 │   │   ├── services/
 │   │   ├── utils/
-│   │   ├── scripts/
-│   │   └── ...
-│   ├── package.json
-│   └── ...
-│
+│   │   └── scripts/
+│   └── package.json
 ├── .gitignore
 └── README.md
 ```
-
+ 
 ---
-
-# ⚙️ Getting Started
-
-## Prerequisites
-
-Make sure you have installed:
-
-- Node.js
-- npm
-- MongoDB Atlas account or MongoDB instance
+ 
+## Getting Started
+ 
+### Prerequisites
+ 
+- Node.js and npm
+- A MongoDB Atlas account or a local MongoDB instance
 - Git
-
-Optional integrations:
-
-- Google Gemini API key
-- SMTP/Gmail credentials
-- External event source credentials/configuration
-
----
-
-## 1. Clone the Repository
-
+- Optional: Google Gemini API key and SMTP credentials
+### Option A: Local Development Setup
+ 
+**1. Clone the repository**
+ 
 ```bash
 git clone https://github.com/Shruti06gupta/EventSync.git
-
 cd EventSync
 ```
-
----
-
-# 2. Backend Setup
-
+ 
+**2. Start the backend** at `http://localhost:5000`
+ 
 ```bash
 cd backend
 npm install
-```
-
-Create a `.env` file:
-
-```env
-PORT=5000
-
-MONGO_URI=your_mongodb_connection_string
-
-JWT_SECRET=your_jwt_secret
-
-GEMINI_API_KEY=your_gemini_api_key
-
-EMAIL_USER=your_email
-EMAIL_PASSWORD=your_email_password
-```
-
-> Use the environment variables expected by the current backend configuration. Never commit `.env` files or API keys.
-
-Start the backend:
-
-```bash
-npm start
-```
-
-or, if a development script is configured:
-
-```bash
 npm run dev
 ```
-
-Backend:
-
-```text
-http://localhost:5000
-```
-
----
-
-# 3. Frontend Setup
-
-Open another terminal:
-
+ 
+Use `npm start` to run without auto-reload.
+ 
+**3. Start the frontend** at `http://localhost:5173`, in a second terminal
+ 
 ```bash
 cd frontend
 npm install
-```
-
-Start the development server:
-
-```bash
 npm run dev
 ```
-
-The frontend will normally be available at:
-
-```text
-http://localhost:5173
+ 
+### Environment Configuration
+ 
+Create `backend/.env`:
+ 
+```env
+NODE_ENV=development
+PORT=5000
+CLIENT_URL=http://localhost:5173
+ 
+MONGO_URI=your_mongodb_connection_string
+ 
+JWT_SECRET=your_jwt_secret
+JWT_REFRESH_SECRET=your_jwt_refresh_secret
+ 
+GEMINI_API_KEY=your_gemini_api_key
+ 
+SMTP_HOST=smtp.resend.com
+SMTP_PORT=465
+SMTP_USER=resend
+SMTP_PASS=your_resend_api_key
+EMAIL_FROM=noreply@eventsync.me
 ```
-
----
-
-# 🔄 Typical User Flow
-
-```text
-Register / Login
-       ↓
-   Dashboard
-       ↓
-Discover Events
-       ↓
- ┌─────┼──────────────┐
- ↓     ↓              ↓
-Search Filter     Recommendations
- ↓     ↓              ↓
- └─────┼──────────────┘
-       ↓
-   Event Details
-       ↓
- ┌─────┼───────────────┐
- ↓     ↓               ↓
-Bookmark Reminder   Register
-       ↓
- Notifications
+ 
+Create `frontend/.env`:
+ 
+```env
+VITE_API_URL=http://localhost:5000
 ```
-
+ 
+| Variable | Purpose |
+|---|---|
+| `MONGO_URI` | MongoDB connection string |
+| `JWT_SECRET`, `JWT_REFRESH_SECRET` | Signing secrets for access and refresh tokens |
+| `CLIENT_URL` | Allowed CORS origin |
+| `GEMINI_API_KEY` | Enables AI-assisted recommendations |
+| `SMTP_*`, `EMAIL_FROM` | Transactional email through Resend |
+| `VITE_API_URL` | API address, read at frontend build time |
+ 
+> Variable names must match the backend configuration. Never commit `.env` files or API keys.
+ 
 ---
-
-# 📍 Example: Location Search Flow
-
-```text
-User enters:
-"Chandigarh"
-
-        ↓
-
-Frontend sends:
-locationName=Chandigarh
-radiusKm=100
-
-        ↓
-
-Backend geocodes location
-
-        ↓
-
-Chandigarh:
-[76.7797143, 30.7334421]
-
-        ↓
-
-MongoDB $near query
-
-        ↓
-
-$maxDistance = 100 km
-
-        ↓
-
-Distance calculation
-
-        ↓
-
-Nearest events first
-```
-
-Example results:
-
-```text
-Innosprint2.0     0.00 km
-Srijan Setu      19.13 km
-BIOS V2          71.94 km
-```
-
+ 
+## Example: Location Search
+ 
+Search for events within **100 km of Chandigarh**:
+ 
+1. The frontend sends `locationName=Chandigarh&radiusKm=100`.
+2. The backend geocodes the place to `[76.7797143, 30.7334421]` (longitude, latitude).
+3. MongoDB runs `$near` with `$maxDistance` set to 100 km.
+4. Results are returned nearest first:
+| Event | Distance |
+|---|---|
+| Innosprint2.0 | 0.00 km |
+| Srijan Setu | 19.13 km |
+| BIOS V2 | 71.94 km |
+ 
 ---
-
-# 🤖 Recommendation Flow
-
-```text
-                 User Activity
-                      │
-        ┌─────────────┼─────────────┐
-        │             │             │
-   Interests      Bookmarks     Preferences
-        │             │             │
-        └─────────────┼─────────────┘
-                      ▼
-              Recommendation
-                  Engine
-                      │
-              ┌───────┴───────┐
-              │               │
-        Event Metadata     Location
-              │               │
-              └───────┬───────┘
-                      ▼
-               AI / Ranking
-                      │
-                      ▼
-             Recommended Events
-```
-
+ 
+## Deployment & CI/CD
+ 
+![CI/CD and deployment](docs/images/deployment.svg)
+ 
+| Part | Where | Address |
+|---|---|---|
+| Frontend (React/Vite static site) | Render Static Site | https://eventsync.me |
+| Backend (Express API) | Render Web Service | https://api.eventsync.me |
+| Database | MongoDB Atlas | private |
+| Transactional email | SMTP via Resend, sent from `noreply@eventsync.me` | — |
+ 
+### CI pipeline
+ 
+Every push and pull request to `main` runs `.github/workflows/ci.yml`:
+ 
+- **Backend tests:** installs dependencies and runs `npm test` (production-hardening and graceful-shutdown checks)
+- **Frontend build:** installs dependencies and runs `npm run build`
+Render auto-deploys only after these checks pass, so a failing commit never reaches the live site.
+ 
+### Deployment notes
+ 
+- Set `VITE_API_URL` to the API address at frontend build time.
+- Add a Render Rewrite rule `/*` → `/index.html` so links such as `/reset-password` open directly.
+- Run the backend as a single instance, because the scheduled jobs (event sync and deadline reminders) run inside the server process.
+- The frontend and API share the parent domain `eventsync.me`, so login cookies work with `SameSite=Lax`.
+### Production hardening
+ 
+- JWT access and refresh tokens in HTTP-only cookies, with automatic refresh
+- `helmet` security headers and CORS limited to the configured client origin
+- Rate limiting on login, registration, password reset, chatbot and sync endpoints
+- Structured logging with `winston`, with passwords and tokens automatically redacted
+- Graceful shutdown that closes the HTTP server and the database connection cleanly
+- Server-side validation, role-based authorization and secrets kept in environment variables
 ---
-
-# 📈 Data Flow
-
-```text
-External Event Sources
-        │
-        ▼
-Synchronization Layer
-        │
-        ▼
-Validation / Processing
-        │
-        ▼
-MongoDB
-        │
-        ├───────────────┐
-        │               │
-        ▼               ▼
- Search / Filters   Recommendation
-        │               │
-        └───────┬───────┘
-                ▼
-           React UI
-```
-
+ 
+## Testing
+ 
+| Area | What to verify |
+|---|---|
+| Authentication | Registration, login, logout, protected routes, role-based access |
+| Discovery | Search, category filters, pagination, event details |
+| Geospatial search | Chandigarh with a 100 km radius returns nearby events sorted by distance |
+| Recommendations | Preferences and bookmarks influence the results |
+| Admin | Event create and edit, analytics, reports, access control |
+ 
+Backend checks run automatically in CI with `npm test`.
+ 
 ---
-
-# 🧪 Testing & Verification
-
-Important functionality can be tested through:
-
-### Authentication
-
-- Registration
-- Login
-- Logout
-- Protected routes
-- Role-based access
-
-### Event Discovery
-
-- Search
-- Category filtering
-- Location filtering
-- Pagination
-- Event details
-
-### Geospatial Search
-
-Example:
-
-```text
-Chandigarh + 100 km
-```
-
-Expected nearby events should be returned and sorted by distance.
-
-### Recommendation System
-
-Verify that:
-
-- Relevant events are recommended
-- User preferences affect recommendations
-- Bookmarked/activity data can influence personalization
-
-### Admin
-
-Verify:
-
-- Event creation
-- Event editing
-- Event management
-- Analytics
-- Reports
-- Administrative access control
-
+ 
+## Operational Resilience
+ 
+- **Graceful shutdown:** the HTTP server and the database connection close cleanly on termination.
+- **Retryable geocoding:** events that fail geocoding are kept and retried, never discarded.
+- **Rate limiting:** login, registration, password reset, chatbot and sync endpoints are protected against abuse.
+- **Safe logging:** `winston` redacts passwords and tokens automatically.
+- **Gated deployments:** Render deploys only after backend tests and the frontend build pass.
+- **Audit trail:** `SyncLog` and `ReminderLog` record sync and reminder activity.
+ 
+## Boundaries & Limitations
+ 
+- **Single instance:** cron jobs run inside the API process, so running multiple backend instances would duplicate scheduled work.
+- **Cold starts:** the free hosting plan sleeps when idle, so the first request can take about 30 seconds.
+- **Radius search scope:** online events and events without valid coordinates are excluded from radius results.
+- **Event sources:** synchronization currently covers Unstop and Devfolio.
 ---
-
-# 📊 Current Geospatial Data Strategy
-
-EventSync stores physical event locations as GeoJSON:
-
-```javascript
-{
-  type: "Point",
-  coordinates: [longitude, latitude]
-}
-```
-
-A MongoDB geospatial index is used:
-
-```javascript
-location: "2dsphere"
-```
-
-Radius searches use:
-
-```javascript
-$near
-```
-
-with:
-
-```javascript
-$maxDistance
-```
-
-This provides:
-
-- Radius filtering
-- Nearest-first ordering
-- Efficient geographic queries
-
-Online events without geographic coordinates are naturally excluded from geographic-radius searches.
-
----
-
-# 🧠 Engineering Highlights
-
-EventSync demonstrates several real-world software engineering concepts:
-
-### Full-Stack Development
-
-- React frontend
-- Node.js backend
-- Express REST APIs
-- MongoDB database
-
-### Authentication
-
-- JWT
-- HTTP-only cookies
-- bcrypt
-- Protected routes
-- RBAC
-
-### Data Engineering
-
-- External event aggregation
-- Data normalization
-- Event validation
-- Geocoding
-- Coordinate validation
-- Background processing
-
-### Search
-
-- Keyword search
-- Filtering
-- Pagination
-- Geospatial search
-
-### AI
-
-- Gemini API integration
-- Personalized event recommendations
-- AI-assisted relevance
-
-### Automation
-
-- Scheduled jobs
-- Deadline processing
-- Notifications
-- Event synchronization
-
-### Analytics
-
-- Admin KPIs
-- Event statistics
-- Reports
-- Synchronization logs
-
----
-
-# 🚧 Future Enhancements
-
-Potential future improvements include:
-
-- 🧠 More advanced hybrid recommendation algorithms
-- 📍 Interactive map-based event discovery
-- 🗺️ Route/distance visualization
-- 🔔 Push notifications
-- 📱 Progressive Web App support
-- 📊 More advanced analytics
-- 🤖 Improved AI recommendation explanations
-- 🎯 User preference learning
-- 🔄 More event-source integrations
-- 📅 Calendar integration
-- 🏆 Expanded gamification and achievement system
-- ⚡ Real-time event updates
-
----
-
-# 👥 Team
-
-**EventSync** was developed as a collaborative student project focused on solving the problem of fragmented event discovery.
-
-### Contributors
-
-- Shruti Gupta
-- Vani Gupta
-- Team members and project contributors
-
----
-
-# 📌 Project Highlights
-
-### EventSync combines:
-
-```text
-MERN
-  +
-Authentication
-  +
-Event Aggregation
-  +
-Geospatial Search
-  +
-AI Recommendations
-  +
-Notifications
-  +
-Bookmarks
-  +
-Reminders
-  +
-Gamification
-  +
-Admin Analytics
-```
-
-into a single student-focused event discovery platform.
-
----
-
-# 🌟 What Makes EventSync Different?
-
-Traditional event platforms generally require students to search for opportunities individually.
-
-EventSync instead creates a **personalized event discovery ecosystem**:
-
-> **Find events → Filter what matters → Discover nearby opportunities → Get personalized recommendations → Save them → Track deadlines → Participate**
-
-The goal is simple:
-
-### **Spend less time searching. Spend more time participating. 🚀**
-
----
-
-## 📄 License
-
-This project is developed for educational and project purposes.
-
-See the repository license for applicable terms.
-
----
-
-## ⭐ Support the Project
-
-If you find EventSync useful or interesting:
-
-- ⭐ Star the repository
-- 🍴 Fork the project
-- 🐛 Report issues
-- 💡 Suggest improvements
-- 🤝 Contribute to the project
-
+ 
+## Roadmap
+ 
+- Interactive map-based event discovery and route visualization
+- Push notifications and Progressive Web App support
+- Calendar integration
+- Hybrid recommendation algorithms with AI explanations and preference learning
+- More event-source integrations
+- Expanded gamification and achievements
+- Real-time event updates
+## Team
+ 
+Developed as a collaborative student project by **Shruti Gupta**, **Vani Gupta** and contributors.
+ 
+## License
+ 
+This project is developed for educational purposes. See the repository license for terms.
+ 
 **Built with ❤️ using the MERN stack.**
+ 
