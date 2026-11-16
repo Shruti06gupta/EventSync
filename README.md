@@ -63,7 +63,31 @@ Students find events through disconnected platforms, social posts and college gr
  
 ## System Architecture
  
-![EventSync system architecture](docs/images/architecture.svg)
+```mermaid
+flowchart TD
+  U([Students and admins]) --> FE["React frontend<br/>Vite + Tailwind · eventsync.me"]
+  FE -- "REST + cookies" --> API
+  subgraph API["Express API (Node.js) · api.eventsync.me"]
+    AUTH["Auth + RBAC"]
+    EVT["Events API<br/>search, geo filter"]
+    REC["Recommender"]
+    NOTIF["Notifications"]
+    CRON["Cron jobs"]
+    SYNC["Event sync"]
+    GEO["Geocoding"]
+    REP["Reports<br/>PDFKit"]
+  end
+  AUTH --> DB[("MongoDB Atlas<br/>2dsphere index")]
+  EVT --> DB
+  NOTIF --> DB
+  GEO --> DB
+  REC --> GEM["Google Gemini API"]
+  NOTIF --> MAIL["Resend SMTP"]
+  CRON --> SYNC
+  CRON --> NOTIF
+  SRC["Unstop and Devfolio"] --> SYNC
+  SYNC --> GEO
+```
  
 | Component | Responsibility |
 |---|---|
@@ -89,7 +113,21 @@ Students find events through disconnected platforms, social posts and college gr
 - Installs shutdown handlers that close the HTTP server and the database connection cleanly.
 ### Phase 1: Authentication and session
  
-![Authentication and token refresh flow](docs/images/auth-flow.svg)
+```mermaid
+sequenceDiagram
+  participant B as React app
+  participant A as Express API
+  participant D as MongoDB
+  B->>A: POST /login (rate limited)
+  A->>D: Find user, verify bcrypt hash
+  A-->>B: Access and refresh cookies (HTTP-only)
+  B->>A: Request with access cookie
+  A-->>B: 401 token expired
+  B->>A: Refresh with refresh cookie
+  A-->>B: New cookies, request retried
+  B->>A: Admin route request
+  A-->>B: 403 unless role is admin
+```
  
 - Passwords are hashed with bcrypt, and login, registration and password reset are rate limited.
 - JWT access and refresh tokens are stored in HTTP-only cookies and refreshed automatically.
@@ -101,7 +139,19 @@ Students find events through disconnected platforms, social posts and college gr
 - Each run is recorded in `SyncLog`, and admins can trigger and monitor sync from the dashboard.
 ### Phase 3: Geocoding and coordinate validation
  
-![Event sync and geocoding data flow](docs/images/data-flow.svg)
+```mermaid
+flowchart TD
+  A[Unstop] & B[Devfolio] --> C["Event sync<br/>scheduled fetch"]
+  C --> D["Normalize and validate<br/>common EventSync model"]
+  D --> E["Geocoding<br/>skips online, offline, TBD"]
+  E --> F["Progressive fallback<br/>full venue, simplified venue, city"]
+  F --> G["Coordinate validation<br/>matches region in venue"]
+  G -- valid --> H[("MongoDB Atlas<br/>GeoJSON Point, 2dsphere")]
+  G -- failed --> R["Stays retryable"]
+  R -.-> E
+  H --> I[Search and filters] & J[Recommendations]
+  I & J --> K[React UI]
+```
  
 - Generic venues (`offline`, `online`, `hybrid`, `TBD`, `TBA`) are never geocoded.
 - Progressive fallback: full venue address, then simplified venue, then city or locality.
@@ -109,13 +159,25 @@ Students find events through disconnected platforms, social posts and college gr
 - Events that fail geocoding stay retryable instead of being dropped.
 ### Phase 4: Discovery and location search
  
-![Location search flow](docs/images/location-search.svg)
+```mermaid
+flowchart TD
+  A["User input<br/>Chandigarh, 100 km radius"] --> B["Frontend request<br/>locationName, radiusKm"]
+  B --> C["Geocode location<br/>[longitude, latitude]"]
+  C --> D["MongoDB $near query<br/>$maxDistance = 100 km"]
+  D --> E["Sort by distance<br/>nearest events first"]
+```
  
 - Text search and filters on category, location, mode, deadline, source and verification status.
 - Radius search resolves a place name or browser location to coordinates, then runs a MongoDB `$near` query.
 ### Phase 5: Personalized recommendations
  
-![Recommendation flow](docs/images/recommendation-flow.svg)
+```mermaid
+flowchart TD
+  A["Interests<br/>preferred categories"] & B["Bookmarks<br/>past interactions"] & C["Preferences<br/>mode, location"] --> D["Recommendation engine<br/>builds user profile"]
+  D --> E["Event metadata<br/>category, mode, source"] & F["Location and deadlines<br/>distance, time left"]
+  E & F --> G["AI ranking<br/>Google Gemini relevance"]
+  G --> H(["Recommended for You"])
+```
  
 - The engine builds a profile from interests, preferred categories, bookmarks and past interactions.
 - Candidates are scored on event metadata, location, mode and upcoming deadlines, then ranked with Gemini.
@@ -207,8 +269,6 @@ EventSync/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml
-├── docs/
-│   └── images/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
@@ -327,7 +387,18 @@ Search for events within **100 km of Chandigarh**:
  
 ## Deployment & CI/CD
  
-![CI/CD and deployment](docs/images/deployment.svg)
+```mermaid
+flowchart TD
+  A["Push or PR to main"] --> T & B
+  subgraph CI["GitHub Actions · ci.yml"]
+    T["Backend tests<br/>npm test"]
+    B["Frontend build<br/>npm run build"]
+  end
+  T & B -- checks pass --> R["Render auto-deploy"]
+  R --> S["Static site · eventsync.me<br/>VITE_API_URL set at build"] & W["Web service · api.eventsync.me"]
+  S -- REST --> W
+  W --> M[("MongoDB Atlas")] & E["Resend SMTP"]
+```
  
 | Part | Where | Address |
 |---|---|---|
@@ -382,7 +453,6 @@ Backend checks run automatically in CI with `npm test`.
 - **Safe logging:** `winston` redacts passwords and tokens automatically.
 - **Gated deployments:** Render deploys only after backend tests and the frontend build pass.
 - **Audit trail:** `SyncLog` and `ReminderLog` record sync and reminder activity.
- 
 ## Boundaries & Limitations
  
 - **Single instance:** cron jobs run inside the API process, so running multiple backend instances would duplicate scheduled work.
